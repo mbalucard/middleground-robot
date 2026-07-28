@@ -1,0 +1,17 @@
+[project]
+name = "middleground-robot"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "concurrent-log-handler>=0.9.29",
+    "deepagents>=0.6.12",
+    "dotenv>=0.9.9",
+    "httpx>=0.28.1",
+    "ipykernel>=7.3.0",
+    "langchain-deepseek",
+    "redis>=8.0.1",
+    "setuptools>=83.0.0",
+    "tavily-python>=0.7.26",
+]
