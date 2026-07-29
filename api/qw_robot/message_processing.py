@@ -1,4 +1,4 @@
-from api.qw_robot.general_tools import send_json, new_req_id
+from api.qw_robot.general_tools import send_json, new_req_id,get_redis_id
 from robot.agents.agent_invoke import stream_agent
 from robot.agents.main_agent import agent
 from utils.logger_manager import LoggerManager
@@ -8,6 +8,7 @@ import json
 import asyncio
 
 logger = LoggerManager.get_logger(name='message_processing')
+
 
 async def respond_stream(
         ws,
@@ -71,6 +72,12 @@ async def handle_msg_callback(ws, msg: dict) -> None:
     callback_req_id = headers["req_id"]  # 同一次回调的所有流式回复都必须用这个
     msgtype = body.get("msgtype")
 
+    #! 获取用户信息
+    if 'from' in body:
+        userid = body.get('from').get('userid')
+        thread_id = get_redis_id(key=userid,id_type='thread_id')
+        logger.info(f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
+
     if msgtype != "text":
         #! 图片/文件等可按文档处理；这里先只回文本流式
         await respond_stream(
@@ -102,8 +109,8 @@ async def handle_msg_callback(ws, msg: dict) -> None:
     async for partial in stream_agent(
         agent=agent,
         question=question,
-        thread_id=stream_id
-        ):
+        thread_id=thread_id
+    ):
         last = partial
         resp = await respond_stream(
             ws,

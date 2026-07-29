@@ -29,11 +29,11 @@ class ConfigLogFile:
 
 class ConfigRedis:
     """配置Redis"""
-    REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-    REDIS_PORT = os.getenv("REDIS_PORT", 6379)
-    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
-    REDIS_DB = os.getenv("REDIS_DB", 0)
-    SESSION_TIMEOUT = os.getenv("SESSION_TIMEOUT", 300)  # 会话过期时间
+    HOST = os.getenv("REDIS_HOST", "localhost")
+    PORT = os.getenv("REDIS_PORT", 6379)
+    PASSWORD = os.getenv("REDIS_PASSWORD", None)
+    DB = os.getenv("REDIS_DB", 3)
+    TIMEOUT = os.getenv("SESSION_TIMEOUT", 300)  # 会话过期时间
     TTL = os.getenv("REDIS_TTL", 3600)  # 会话超时时间
 
 
