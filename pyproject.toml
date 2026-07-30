@@ -11,6 +11,8 @@ dependencies = [
     "httpx>=0.28.1",
     "ipykernel>=7.3.0",
     "langchain-deepseek",
+    "langgraph-checkpoint-postgres>=3.1.0",
+    "psycopg[binary]>=3.3.4",
     "redis>=8.0.1",
     "setuptools>=83.0.0",
     "tavily-python>=0.7.26",

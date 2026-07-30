@@ -42,7 +42,11 @@ class ConfigAPI:
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = os.getenv("PORT", 8001)
 
-
+class ConfigPostgres:
+    """配置Postgres"""
+    DB_URI = f"postgresql://{os.getenv('PS_USER')}:{os.getenv('PS_PASSWORD')}@{os.getenv('PS_HOST')}:{os.getenv('PS_PORT')}/{os.getenv('PS_DATABASE')}"
+    MIN_SIZE = 5
+    MAX_SIZE = 10
 
 
 if __name__ == "__main__":

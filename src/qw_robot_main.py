@@ -42,7 +42,7 @@ async def main() -> None:  # 主函数
                 if "errcode" in msg and cmd is None:
                     continue
 
-                logger.info(f"msg: {msg}")
+                logger.info(f"msg: {msg}")  # 打印接收到的消息
 
                 if cmd == "aibot_msg_callback":
                     # 不要阻塞收包太久；复杂 LLM 可 create_task

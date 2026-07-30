@@ -109,7 +109,8 @@ async def handle_msg_callback(ws, msg: dict) -> None:
     async for partial in stream_agent(
         agent=agent,
         question=question,
-        thread_id=thread_id
+        thread_id=thread_id,
+        user_id=userid,
     ):
         last = partial
         resp = await respond_stream(

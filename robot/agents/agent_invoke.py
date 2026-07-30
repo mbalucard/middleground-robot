@@ -113,6 +113,7 @@ async def stream_agent(
     agent:CompiledStateGraph,
     question:str,
     thread_id:str,
+    user_id:str,
     model_name: Literal["deepseek", "minimax"] = "deepseek",
     api_key: Optional[str] = None,
 ):
@@ -122,15 +123,17 @@ async def stream_agent(
         agent: 智能体
         question: 问题
         thread_id: 线程ID
+        user_id: 用户ID
         model_name: 模型名称
         api_key: 通行密匙
     """
-    config = invoke_config(thread_id)
+    config = invoke_config(thread_id=thread_id, user_id=user_id)
+    # logger.info(f"config: {config}")
     human_message = HumanMessage(content=question)
     async for chunk in agent.astream(
         {"messages": [human_message]},
         config=config,
-        context=Context(model=model_name, api_key=api_key, thread_id=thread_id),
+        context=Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id),
         stream_mode="updates",
         subgraphs=True,
         version='v2',
