@@ -1,4 +1,4 @@
-from api.qw_robot.general_tools import send_json, new_req_id,get_redis_id
+from api.qw_robot.general_tools import send_json, new_req_id, get_redis_id
 from robot.agents.agent_invoke import stream_agent
 
 from langgraph.graph.state import CompiledStateGraph
@@ -12,15 +12,18 @@ logger = LoggerManager.get_logger(name='message_processing')
 
 
 async def respond_stream(
-        ws,
-        callback_req_id: str,
-        stream_id: str,
-        content: str,
-        *,
-        finish: bool = True,
-        feedback_id: Optional[str] = None,) -> dict:
+    ws,
+    callback_req_id: str,
+    stream_id: str,
+    content: str,
+    *,
+    finish: bool = True,
+    feedback_id: Optional[str] = None,
+    max_retries: int = 2,          # 额外重试次数：共 1 + 2 = 3 次尝试
+    base_delay: float = 0.3,       # 首次退避 0.3s，再 0.6s …
+) -> dict:
     """
-    主动推送/刷新流式消息。callback_req_id 必须透传消息回调里的 req_id。
+    发送流式消息
     Args:
         ws:  websocket连接
         callback_req_id: 回调请求id
@@ -28,6 +31,8 @@ async def respond_stream(
         content: 消息内容
         finish: 是否结束
         feedback_id: 反馈id
+        max_retries: 额外重试次数
+        base_delay: 首次退避时间
     Returns:
         dict: 响应
     """
@@ -36,9 +41,9 @@ async def respond_stream(
         "finish": finish,
         "content": content,
     }
-    # feedback 可选；不为空时用户点赞/点踩会触发 feedback_event
     if feedback_id:
         stream_body["feedback"] = {"id": feedback_id}
+
     payload = {
         "cmd": "aibot_respond_msg",
         "headers": {"req_id": callback_req_id},
@@ -47,8 +52,30 @@ async def respond_stream(
             "stream": stream_body,
         },
     }
-    await send_json(ws, payload)
-    return json.loads(await ws.recv())
+
+    last_resp: dict = {}
+    for attempt in range(max_retries + 1):
+        await send_json(ws, payload)
+        last_resp = json.loads(await ws.recv())
+
+        # 心跳/无 cmd 的包可能插进来，按需跳过（若你这边会遇到）
+        # while last_resp.get("cmd") is None and "errcode" in last_resp:
+        #     last_resp = json.loads(await ws.recv())
+
+        err = last_resp.get("errcode", 0)
+        if err == 0:
+            return last_resp
+        if err == 6000 and attempt < max_retries:
+            delay = base_delay * (2 ** attempt)  # 0.3, 0.6, …
+            logger.warning(
+                f"stream 版本冲突(6000), {delay:.1f}s 后重试 "
+                f"attempt={attempt + 1}/{max_retries} stream_id={stream_id}"
+            )
+            await asyncio.sleep(delay)
+            continue
+        return last_resp  # 非 6000，或重试用尽
+
+    return last_resp
 
 
 async def heartbeat_loop(ws, interval: float = 30.0) -> None:
@@ -60,10 +87,10 @@ async def heartbeat_loop(ws, interval: float = 30.0) -> None:
 
 
 async def handle_msg_callback(
-    ws, 
+    ws,
     msg: dict,
     agent: CompiledStateGraph,
-    ) -> None:
+) -> None:
     """
     处理消息回调
     Args:
@@ -80,8 +107,9 @@ async def handle_msg_callback(
     #! 获取用户信息
     if 'from' in body:
         userid = body.get('from').get('userid')
-        thread_id = get_redis_id(key=userid,id_type='thread_id')
-        logger.info(f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
+        thread_id = get_redis_id(key=userid, id_type='thread_id')
+        logger.info(
+            f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
 
     if msgtype != "text":
         #! 图片/文件等可按文档处理；这里先只回文本流式

@@ -9,7 +9,6 @@ from utils.logger_manager import LoggerManager
 
 from robot.agents.main_agent import build_agent
 from robot.tools.memory_device import postgres_resources
-from robot.agents.agent_invoke import stream_agent
 
 WS_URL = QywxBotConfig.URL
 BOT_ID = QywxBotConfig.ID
