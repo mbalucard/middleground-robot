@@ -1,5 +1,6 @@
 """
 代理后端
+    - make_backend 用来创建代理后端
 """
 
 
@@ -25,7 +26,7 @@ def make_backend() -> CompositeBackend:
         routes={
             # 长期记忆，使用Postgres store，并按 user_id 隔离
             "/memories/": StoreBackend(
-                namespace=lambda rt: (rt.context.user_id, "memories"),
+                namespace=lambda rt: (str(rt.context.user_id).replace(".", "_"), "memories"),
             ),
         },
     )

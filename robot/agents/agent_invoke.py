@@ -175,11 +175,15 @@ async def stream_agent(
 
 
 if __name__ == "__main__":
-    from robot.agents.main_agent import agent
+    from robot.agents.main_agent import build_agent
     import asyncio
+    from robot.tools.memory_device import postgres_resources
     question = "现在几点了"
     thread_id = 'test01'
+    user_id = "test01"
     async def main():
-        async for text in stream_agent(agent, question, thread_id):
-            print(text, flush=True)
+        async with postgres_resources() as pg:
+            agent = build_agent(checkpointer=pg.checkpointer, store=pg.store)
+            async for text in stream_agent(agent, question, thread_id, user_id="test01"):
+                print(text, flush=True)
     asyncio.run(main())

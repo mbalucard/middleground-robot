@@ -1,6 +1,7 @@
 from api.qw_robot.general_tools import send_json, new_req_id,get_redis_id
 from robot.agents.agent_invoke import stream_agent
-from robot.agents.main_agent import agent
+
+from langgraph.graph.state import CompiledStateGraph
 from utils.logger_manager import LoggerManager
 
 from typing import Optional
@@ -58,7 +59,11 @@ async def heartbeat_loop(ws, interval: float = 30.0) -> None:
         await send_json(ws, {"cmd": "ping", "headers": {"req_id": new_req_id()}})
 
 
-async def handle_msg_callback(ws, msg: dict) -> None:
+async def handle_msg_callback(
+    ws, 
+    msg: dict,
+    agent: CompiledStateGraph,
+    ) -> None:
     """
     处理消息回调
     Args:
