@@ -10,7 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
 from utils.logger_manager import LoggerManager
-logger = LoggerManager.get_logger(name=__name__)
+logger = LoggerManager.get_logger(name="agent_invoke")
 
 
 def run_agent(
@@ -146,7 +146,8 @@ async def stream_agent(
             if isinstance(content, str):
                 if content:
                     yield f"回答：{content}"
-                continue
+                if content and not getattr(msg, "tool_calls", None):
+                    continue
             # 内容块列表：text 优先于 thinking
             if isinstance(content, list):
                 texts = [
@@ -165,13 +166,17 @@ async def stream_agent(
                 elif thinkings:
                     for t in thinkings:
                         yield f"思考中：{t}"
-                # 如需额外提示工具调用，可保留；不要影响 text/thinking 优先级
-                for b in content:
-                    if isinstance(b, dict) and b.get("type") == "tool_use":
-                        yield f"使用工具：{b.get('name')}"
-        elif data.get("tools"):
-            tool_msg = data["tools"]["messages"][0]
-            yield f"工具结果：{tool_msg.content}"
+            # 工具调用及参数
+            if not content:
+                tool_calls = msg.tool_calls
+                logger.info(f"tool_calls: {tool_calls}")
+                if tool_calls:
+                    for tool_call in tool_calls:
+                        yield f"使用工具：{tool_call.get('name')} - 参数：{tool_call.get('args')}"
+        # 工具返回结果                
+        # elif data.get("tools"):
+        #     tool_msg = data["tools"]["messages"][0]
+        #     yield f"工具结果：{tool_msg.content}"
 
 
 if __name__ == "__main__":
