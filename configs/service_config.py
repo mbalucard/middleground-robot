@@ -13,7 +13,7 @@ dotenv.load_dotenv()
 
 class DatabaseConfig:
     """数据库配置"""
-    DB_URI = f"postgresql://{os.getenv('SQL_USER')}:{os.getenv('SQL_PASSWORD')}@{os.getenv('SQL_HOST')}:{os.getenv('SQL_PORT')}/{os.getenv('SQL_DATABASE')}"
+    DB_URI = f"postgresql+psycopg://{os.getenv('PS_USER')}:{os.getenv('PS_PASSWORD')}@{os.getenv('PS_HOST')}:{os.getenv('PS_PORT')}/{os.getenv('PS_DATABASE')}"
     MIN_SIZE = 5
     MAX_SIZE = 10
 

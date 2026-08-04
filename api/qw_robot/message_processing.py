@@ -137,6 +137,7 @@ async def handle_msg_callback(
     )
 
     # 2) 主动多次刷新（长连接模式关键：没有企业微信再来轮询你）
+    # 定义返回流式内容
     last = ""
 
     async for partial in stream_agent(
@@ -146,6 +147,7 @@ async def handle_msg_callback(
         user_id=userid,
     ):
         last = partial
+        # logger.info(f"partial: {partial}")
         resp = await respond_stream(
             ws,
             callback_req_id,

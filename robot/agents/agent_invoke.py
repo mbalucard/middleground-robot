@@ -127,6 +127,7 @@ async def stream_agent(
         model_name: 模型名称
         api_key: 通行密匙
     """
+    # 初始化消息配置
     config = invoke_config(thread_id=thread_id, user_id=user_id)
     # logger.info(f"config: {config}")
     human_message = HumanMessage(content=question)
@@ -134,8 +135,8 @@ async def stream_agent(
         {"messages": [human_message]},
         config=config,
         context=Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id),
-        stream_mode="updates",
-        subgraphs=True,
+        stream_mode="updates",  # 流式更新模式
+        subgraphs=True,  # 是否显示工具或子代理反馈信息
         version='v2',
     ):
         data = chunk['data'] or {}

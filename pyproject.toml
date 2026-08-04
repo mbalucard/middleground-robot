@@ -8,6 +8,7 @@ dependencies = [
     "concurrent-log-handler>=0.9.29",
     "deepagents>=0.6.12",
     "dotenv>=0.9.9",
+    "greenlet>=3.5.4",
     "httpx>=0.28.1",
     "ipykernel>=7.3.0",
     "langchain-deepseek",
@@ -15,5 +16,6 @@ dependencies = [
     "psycopg[binary]>=3.3.4",
     "redis>=8.0.1",
     "setuptools>=83.0.0",
+    "sqlalchemy>=2.0.51",
     "tavily-python>=0.7.26",
 ]
