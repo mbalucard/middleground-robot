@@ -16,6 +16,9 @@ class PostgresServer:
 
     @asynccontextmanager
     async def get_db_session(self):
+        """
+        获取数据库会话
+        """
         async with self.AsyncSessionLocal() as db:
             try:
                 yield db

@@ -10,7 +10,7 @@ async def insert_message(
     message_id: str,
     thread_id: str,
     user_id: str,
-    modle_name: str,
+    model_name: str,
     question: str,
     answer: str,
     chat_type: str,
@@ -22,7 +22,7 @@ async def insert_message(
         message_id: 消息ID
         thread_id: 对话ID
         user_id: 用户ID
-        modle_name: 模型名称
+        model_name: 模型名称
         question: 问题
         answer: 答案
         chat_type: 对话类型
@@ -34,7 +34,7 @@ async def insert_message(
         message_id=message_id,
         thread_id=thread_id,
         user_id=user_id,
-        modle_name=modle_name,
+        model_name=model_name,
         question=question,
         answer=answer,
         chat_type=chat_type,

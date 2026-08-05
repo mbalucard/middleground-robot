@@ -4,6 +4,7 @@ import websockets
 
 from api.qw_robot.general_tools import send_json, new_req_id
 from api.qw_robot.message_processing import handle_msg_callback, heartbeat_loop
+from api.qw_robot.data_models import init_db
 from configs.api_config import QywxBotConfig
 from utils.logger_manager import LoggerManager
 
@@ -17,7 +18,8 @@ SECRET = QywxBotConfig.SECRET
 logger = LoggerManager.get_logger(name='qw_robot_main')
 
 
-async def main() -> None:  # 主函数
+async def main() -> None:  
+    await init_db() # 数据库初始化
     async with websockets.connect(WS_URL, ping_interval=None) as ws:  # 连接到企业微信服务器
         # 订阅（成功后不要反复 subscribe）
         await send_json(

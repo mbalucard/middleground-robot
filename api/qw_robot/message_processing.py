@@ -1,14 +1,17 @@
 from api.qw_robot.general_tools import send_json, new_req_id, get_redis_id
+from api.qw_robot.session_manager import session_hset
 from robot.agents.agent_invoke import stream_agent
 
 from langgraph.graph.state import CompiledStateGraph
 from utils.logger_manager import LoggerManager
+from utils.redis_link import RedisManager
 
 from typing import Optional
 import json
 import asyncio
 
 logger = LoggerManager.get_logger(name='message_processing')
+r_link = RedisManager()
 
 
 async def respond_stream(
@@ -104,13 +107,6 @@ async def handle_msg_callback(
     callback_req_id = headers["req_id"]  # 同一次回调的所有流式回复都必须用这个
     msgtype = body.get("msgtype")
 
-    #! 获取用户信息
-    if 'from' in body:
-        userid = body.get('from').get('userid')
-        thread_id = get_redis_id(key=userid, id_type='thread_id')
-        logger.info(
-            f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
-
     if msgtype != "text":
         #! 图片/文件等可按文档处理；这里先只回文本流式
         await respond_stream(
@@ -125,6 +121,25 @@ async def handle_msg_callback(
     question = body["text"]["content"]
     stream_id = new_req_id()  # 本条流式消息的唯一 id，后续刷新必须复用
     logger.info(f"stream_id: {stream_id}")
+
+    #! 获取用户信息
+    if 'from' in body:
+        userid = body.get('from').get('userid')
+        thread_id = get_redis_id(key=userid, id_type='thread_id')
+        logger.info(
+            f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
+
+        r_client = await r_link.get_client()
+        await session_hset(
+            redis_client=r_client,
+            message_id=stream_id,
+            user_id=userid,
+            aibot_id=body.get('aibotid',''),
+            chat_type=body.get('chattype',''),
+            thread_id=thread_id,
+            question=question,
+        )
+
 
     # 1) 首次创建流式气泡
     await respond_stream(
@@ -145,6 +160,8 @@ async def handle_msg_callback(
         question=question,
         thread_id=thread_id,
         user_id=userid,
+        message_id=stream_id,
+        redis_client=r_client,
     ):
         last = partial
         # logger.info(f"partial: {partial}")

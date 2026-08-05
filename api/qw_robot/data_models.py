@@ -25,7 +25,7 @@ class RobotMessage(Base):
     message_id = Column(String(64), nullable=False, comment="消息id")
     thread_id = Column(String(64), nullable=False, comment="对话id")
     user_id = Column(String(64), nullable=False, comment="用户id")
-    modle_name = Column(String(32), nullable=False, comment="模型名称")
+    model_name = Column(String(32), nullable=False, comment="模型名称")
     question = Column(Text, nullable=False, comment="问题")
     answer = Column(Text, nullable=True, comment="回答")
     chat_type = Column(String(16), nullable=False, comment="对话类型")
@@ -39,7 +39,7 @@ default=get_current_datetime(), comment="创建时间")
             "message_id": self.message_id,
             "thread_id": self.thread_id,
             "user_id": self.user_id,
-            "modle_name": self.modle_name,
+            "model_name": self.model_name,
             "question": self.question,
             "answer": self.answer,
             "chat_type": self.chat_type,
@@ -48,7 +48,7 @@ default=get_current_datetime(), comment="创建时间")
         }
 
     def __repr__(self):
-        return f"<Message(id={self.id}, message_id={self.message_id}, thread_id={self.thread_id}, user_id={self.user_id}, modle_name={self.modle_name}, question={self.question}, answer={self.answer}, chat_type={self.chat_type}, aibot_id={self.aibot_id}, create_time={self.create_time})>"
+        return f"<Message(id={self.id}, message_id={self.message_id}, thread_id={self.thread_id}, user_id={self.user_id}, model_name={self.model_name}, question={self.question}, answer={self.answer}, chat_type={self.chat_type}, aibot_id={self.aibot_id}, create_time={self.create_time})>"
 
 
 class RobotToolCall(Base):

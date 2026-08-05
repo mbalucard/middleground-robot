@@ -9,7 +9,11 @@ from robot.agents.model_context import Context, invoke_config
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+import redis.asyncio as redis
+
 from utils.logger_manager import LoggerManager
+from api.qw_robot.session_manager import session_hset
+
 logger = LoggerManager.get_logger(name="agent_invoke")
 
 
@@ -116,6 +120,8 @@ async def stream_agent(
     user_id:str,
     model_name: Literal["deepseek", "minimax"] = "deepseek",
     api_key: Optional[str] = None,
+    message_id: Optional[str] = None,
+    redis_client: Optional[redis.Redis] = None,
 ):
     """
     流式运行智能体
@@ -126,7 +132,9 @@ async def stream_agent(
         user_id: 用户ID
         model_name: 模型名称
         api_key: 通行密匙
+        message_id: 消息ID
     """
+    mes_list = []
     # 初始化消息配置
     config = invoke_config(thread_id=thread_id, user_id=user_id)
     # logger.info(f"config: {config}")
@@ -141,6 +149,7 @@ async def stream_agent(
     ):
         data = chunk['data'] or {}
         if data.get("model"):
+            mes_list.append(data.get("model").get("messages")[0])
             msg = data["model"]["messages"][0]
             content = msg.content
             # 纯字符串：直接当回答
@@ -178,6 +187,15 @@ async def stream_agent(
         # elif data.get("tools"):
         #     tool_msg = data["tools"]["messages"][0]
         #     yield f"工具结果：{tool_msg.content}"
+    # 会话存表
+    if redis_client:
+        mes_key = await session_hset(
+            redis_client=redis_client,
+            message_id=message_id,
+            user_id=user_id,
+            answer=mes_list[-1].content,
+            model_name=mes_list[-1].response_metadata.get("model_name"),
+        )
 
 
 if __name__ == "__main__":
