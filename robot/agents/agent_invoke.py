@@ -12,7 +12,7 @@ from langgraph.types import Command
 import redis.asyncio as redis
 
 from utils.logger_manager import LoggerManager
-from api.qw_robot.session_manager import session_hset
+from api.qw_robot.session_manager import session_hset, tool_calls_hset
 
 logger = LoggerManager.get_logger(name="agent_invoke")
 
@@ -149,8 +149,22 @@ async def stream_agent(
     ):
         data = chunk['data'] or {}
         if data.get("model"):
-            mes_list.append(data.get("model").get("messages")[0])
-            msg = data["model"]["messages"][0]
+            mes_list.append(data.get("model").get("messages")[-1])
+            msg = data["model"]["messages"][-1]
+            # 工具调用存表
+            tool_calls = msg.tool_calls
+            if tool_calls and redis_client:
+                tool_call_id = tool_calls[-1].get("id")
+                tool_name = tool_calls[-1].get("name")
+                tool_input = tool_calls[-1].get("args")
+                await tool_calls_hset(
+                    redis_client=redis_client,
+                    message_id=message_id,
+                    tool_call_id=tool_call_id,
+                    tool_name=tool_name,
+                    tool_input=str(tool_input),
+                )
+            # 消息处理
             content = msg.content
             # 纯字符串：直接当回答
             if isinstance(content, str):
@@ -178,15 +192,23 @@ async def stream_agent(
                         yield f"思考中：{t}"
             # 工具调用及参数
             if not content:
-                tool_calls = msg.tool_calls
                 logger.info(f"tool_calls: {tool_calls}")
                 if tool_calls:
                     for tool_call in tool_calls:
                         yield f"使用工具：{tool_call.get('name')} - 参数：{tool_call.get('args')}"
         # 工具返回结果                
-        # elif data.get("tools"):
-        #     tool_msg = data["tools"]["messages"][0]
-        #     yield f"工具结果：{tool_msg.content}"
+        elif data.get("tools"):
+            tool_msg = data["tools"]["messages"][-1]
+            # 工具返回结果存表
+            if redis_client:
+                tool_call_id = tool_msg.tool_call_id
+                await tool_calls_hset(
+                    redis_client=redis_client,
+                    message_id=message_id,
+                    tool_call_id=tool_call_id,
+                    tool_output=tool_msg.content,
+                )
+            # yield f"工具结果：{tool_msg.content}"
     # 会话存表
     if redis_client:
         mes_key = await session_hset(
