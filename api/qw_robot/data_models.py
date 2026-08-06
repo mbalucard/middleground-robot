@@ -7,7 +7,6 @@
 
 
 from sqlalchemy import Column, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base
 
 from api.qw_robot.general_tools import get_current_datetime
@@ -56,15 +55,17 @@ class RobotToolCall(Base):
     __table_args__ = {'comment': "工具调用记录表"}
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键")
     message_id = Column(String(64), nullable=False, comment="消息id")
+    tool_call_id = Column(String(64), nullable=False, comment="工具调用id")
     tool_name = Column(String(64), nullable=False, comment="工具名称")
-    tool_input = Column(JSONB, nullable=False, comment="工具输入")
-    tool_output = Column(Text, nullable=False, comment="工具输出")
+    tool_input = Column(Text, nullable=True, comment="工具输入")
+    tool_output = Column(Text, nullable=True, comment="工具输出")
     create_time = Column(String(32), nullable=False, default=get_current_datetime(), comment="创建时间")
 
     def to_dict(self):
         return {
             "id": self.id,
             "message_id": self.message_id,
+            "tool_call_id": self.tool_call_id,
             "tool_name": self.tool_name,
             "tool_input": self.tool_input,
             "tool_output": self.tool_output,
@@ -72,7 +73,7 @@ class RobotToolCall(Base):
         }
 
     def __repr__(self):
-        return f"<ToolCall(id={self.id}, message_id={self.message_id}, tool_name={self.tool_name}, tool_input={self.tool_input}, tool_output={self.tool_output}, create_time={self.create_time})>"
+        return f"<ToolCall(id={self.id}, message_id={self.message_id}, tool_call_id={self.tool_call_id}, tool_name={self.tool_name}, tool_input={self.tool_input}, tool_output={self.tool_output}, create_time={self.create_time})>"
 
 
 async def init_db():
@@ -80,3 +81,8 @@ async def init_db():
     engine = db_server.get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(init_db())

@@ -1,6 +1,7 @@
 """
 数据交互
     - insert_message 插入消息
+    - insert_tool_call 插入工具调用
 """
 from api.qw_robot.data_models import RobotMessage, RobotToolCall
 
@@ -49,6 +50,7 @@ async def insert_message(
 async def insert_tool_call(
     db_session,
     message_id: str,
+    tool_call_id: str,
     tool_name: str,
     tool_input: dict,
     tool_output: str,
@@ -58,6 +60,7 @@ async def insert_tool_call(
     Args:
         db_session: 数据库会话对象
         message_id: 消息ID
+        tool_call_id: 工具调用ID
         tool_name: 工具名称
         tool_input: 工具输入
         tool_output: 工具输出
@@ -66,6 +69,7 @@ async def insert_tool_call(
     """
     tool_call = RobotToolCall(
         message_id=message_id,
+        tool_call_id=tool_call_id,
         tool_name=tool_name,
         tool_input=tool_input,
         tool_output=tool_output,

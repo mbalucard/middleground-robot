@@ -1,5 +1,6 @@
 """
 会话管理
+    - session_hset 会话存表
 """
 import redis.asyncio as redis
 
@@ -38,7 +39,7 @@ async def session_hset(
     Returns:
         message_key: 消息键
     """
-    message_key = f"{user_id}+{message_id}"
+    message_key = f"message:{user_id}+{message_id}"
 
     if await redis_client.exists(message_key):
         message_dict = await redis_client.hgetall(message_key)
