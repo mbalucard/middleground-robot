@@ -1,9 +1,10 @@
 """
 服务配置
-    - 数据库配置: DatabaseConfig
-    - 日志文件配置: ConfigLogFile
-    - Redis配置: ConfigRedis
-    - API配置: ConfigAPI
+    - DatabaseConfig: 存储用数据库配置
+    - ConfigLogFile: 日志文件配置
+    - ConfigRedis: Redis配置
+    - ConfigAPI: API配置
+    - ConfigPostgres: Postgres配置,AI模型长短期记忆存储
 """
 import os
 import dotenv
@@ -12,7 +13,7 @@ dotenv.load_dotenv()
 
 
 class DatabaseConfig:
-    """数据库配置"""
+    """存储用数据库配置"""
     DB_URI = f"postgresql+psycopg://{os.getenv('PS_USER')}:{os.getenv('PS_PASSWORD')}@{os.getenv('PS_HOST')}:{os.getenv('PS_PORT')}/{os.getenv('PS_DATABASE')}"
     MIN_SIZE = 5
     MAX_SIZE = 10
@@ -43,7 +44,7 @@ class ConfigAPI:
     PORT = os.getenv("PORT", 8001)
 
 class ConfigPostgres:
-    """配置Postgres"""
+    """配置Postgres,AI模型长短期记忆存储"""
     DB_URI = f"postgresql://{os.getenv('PS_USER')}:{os.getenv('PS_PASSWORD')}@{os.getenv('PS_HOST')}:{os.getenv('PS_PORT')}/{os.getenv('PS_DATABASE')}"
     MIN_SIZE = 5
     MAX_SIZE = 10

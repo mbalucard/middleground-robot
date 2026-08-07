@@ -1,3 +1,7 @@
+"""
+企微机器人主程序
+    - main: 主程序
+"""
 import asyncio
 import json
 import websockets

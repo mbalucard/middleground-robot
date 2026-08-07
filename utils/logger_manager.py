@@ -1,4 +1,8 @@
-# utils/logger_manager.py
+"""
+日志管理器
+    - LoggerManager: 统一的日志管理器
+"""
+
 import logging
 from concurrent_log_handler import ConcurrentRotatingFileHandler
 from configs.service_config import ConfigLogFile

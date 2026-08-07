@@ -1,5 +1,6 @@
 """
 数据库连接
+    - PostgresServer: Postgres服务器
 """
 from configs.service_config import DatabaseConfig
 
@@ -8,7 +9,9 @@ from contextlib import asynccontextmanager
 
 
 class PostgresServer:
+    """Postgres服务器"""
     def __init__(self):
+        """初始化Postgres服务器"""
         self.engine = create_async_engine(DatabaseConfig.DB_URI, echo=False)
         self.AsyncSessionLocal = async_sessionmaker(
             self.engine, expire_on_commit=False

@@ -2,6 +2,7 @@
 模型中间件
     - 手动选择模型: configurable_model
     - 自动选择模型: dynamic_model_selection
+    - get_model_middleware: 获取模型中间件
 """
 
 from collections.abc import Awaitable, Callable

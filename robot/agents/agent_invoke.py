@@ -2,6 +2,7 @@
 运行智能体
     - run_agent: 运行智能体
     - interrypts_judge: AI中断后,人工判断是否继续执行
+    - stream_agent: 流式运行智能体
 """
 from typing import Optional, Tuple, Any, Literal, Dict, List
 from langchain_core.messages import HumanMessage

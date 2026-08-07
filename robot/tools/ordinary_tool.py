@@ -18,8 +18,7 @@ def internet_search(
     query: str,
     max_results: int = 5,
     topic: Literal["general", "news", "finance"] = "general",
-    include_raw_content: bool = False,
-):
+    include_raw_content: bool = False,):
     """
     使用互联网搜索工具进行搜索
     Args:

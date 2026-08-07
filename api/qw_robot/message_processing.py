@@ -1,3 +1,10 @@
+"""
+消息处理
+    - respond_stream: 发送流式消息
+    - heartbeat_loop: 心跳包
+    - handle_msg_callback: 处理消息回调
+"""
+
 from api.qw_robot.general_tools import send_json, new_req_id, get_redis_id
 from api.qw_robot.session_manager import session_hset
 from robot.agents.agent_invoke import stream_agent
@@ -122,13 +129,13 @@ async def handle_msg_callback(
     stream_id = new_req_id()  # 本条流式消息的唯一 id，后续刷新必须复用
     logger.info(f"stream_id: {stream_id}")
 
-    #! 获取用户信息
+    # 获取用户信息
     if 'from' in body:
         userid = body.get('from').get('userid')
         thread_id = get_redis_id(key=userid, id_type='thread_id')
         logger.info(
             f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
-
+        # 文本消息存表
         r_client = await r_link.get_client()
         await session_hset(
             redis_client=r_client,

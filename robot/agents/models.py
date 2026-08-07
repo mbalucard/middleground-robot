@@ -1,7 +1,7 @@
 """
 Agent模型
-    - DeepSeekAgent
-    - MiniMaxAgent
+    - deepseek_model
+    - minimax_model
 """
 
 from langchain.chat_models import init_chat_model

@@ -1,5 +1,6 @@
 """
 Redis连接管理
+    - RedisManager: Redis会话管理器
 """
 import redis.asyncio as redis
 
@@ -10,9 +11,7 @@ logger = LoggerManager.get_logger(name=__name__)
 
 
 class RedisManager:
-    """
-    定义Redis会话管理器
-    """
+    """Redis会话管理器"""
 
     def __init__(self):
         self.redis_client = redis.Redis(host=ConfigRedis.HOST, port=ConfigRedis.PORT, db=ConfigRedis.DB, password=ConfigRedis.PASSWORD, decode_responses=True)

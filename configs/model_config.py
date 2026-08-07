@@ -2,6 +2,7 @@
 模型配置
     - MiniMax模型配置: MiniMaxModelConfig
     - DeepSeek模型配置: DeepSeekModelConfig
+    - Tavily模型配置: Tavily
 """
 
 import os

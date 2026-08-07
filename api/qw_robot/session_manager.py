@@ -1,6 +1,7 @@
 """
 会话管理
     - session_hset 会话存表
+    - tool_calls_hset 工具调用存表
 """
 import redis.asyncio as redis
 
@@ -11,7 +12,7 @@ from utils.db_link import PostgresServer
 pg_link = PostgresServer()
 
 logger = LoggerManager.get_logger(name=__name__)
-ttl=30
+ttl=60
 
 async def session_hset(
     redis_client:redis.Redis, 
@@ -61,6 +62,7 @@ async def session_hset(
                     answer=message_dict.get('answer'),
                     model_name=message_dict.get('model_name'),
                 )
+                await redis_client.delete(message_key) # 删除缓存
             except Exception as e:
                 logger.error(f"插入数据库失败: {e}")
     else:
@@ -86,8 +88,7 @@ async def tool_calls_hset(
     tool_call_id:str,
     tool_name:str='',
     tool_input:str='',
-    tool_output:str='',
-):
+    tool_output:str='',):
     """
     工具调用存表
     Args:
@@ -116,6 +117,7 @@ async def tool_calls_hset(
                     tool_input=value.get('tool_input'),
                     tool_output=tool_output,
                 )
+                await redis_client.delete(tool_call_key) # 删除缓存
             except Exception as e:
                 logger.error(f"插入数据库失败: {e}")
     else:
