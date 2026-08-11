@@ -14,7 +14,7 @@
 ## 技术栈
 
 | 类别 | 选型 |
-|------|------|
+| ------ | ------ |
 | 语言 / 包管理 | Python ≥ 3.14，[uv](https://github.com/astral-sh/uv) |
 | Agent | deepagents、LangGraph、LangChain |
 | 模型 | DeepSeek、MiniMax |
@@ -24,7 +24,7 @@
 
 ## 项目结构
 
-```
+```text
 middleground-robot/
 ├── src/
 │   └── qw_robot_main.py      # 主入口：企微 WS 连接与消息循环
@@ -61,7 +61,7 @@ middleground-robot/
 
 ## 架构与数据流
 
-```
+```text
 企微用户消息
     │
     ▼
@@ -172,7 +172,7 @@ python -m robot.agents.agent_invoke
 ### 配置 (`configs/`)
 
 | 模块 | 作用 |
-|------|------|
+| ------ | ------ |
 | `api_config.py` | 企微 Bot URL / ID / Secret |
 | `model_config.py` | DeepSeek、MiniMax、Tavily |
 | `service_config.py` | Postgres、Redis、日志路径、API Host/Port |
