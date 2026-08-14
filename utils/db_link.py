@@ -37,4 +37,7 @@ class PostgresServer:
         """获取数据库引擎"""
         return self.engine
 
-    
+if __name__ == '__main__':
+    db = PostgresServer()
+    engine = db.get_engine()
+    print(engine)

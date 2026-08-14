@@ -9,3 +9,4 @@ setup(
 
 # 最终在终端执行以下代码
 # uv pip install -e .
+# source source .venv/bin/activate

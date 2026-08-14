@@ -16,7 +16,7 @@ from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
 
 from robot.tools.ordinary_tool import internet_search, get_current_date
-
+from robot.tools.sale_tools import get_shop_sale_data
 
 
 def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
@@ -31,7 +31,8 @@ def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
     model_middleware = get_model_middleware(model_type)
     tool_backend = StateBackend()
     middleware = [
-        create_summarization_tool_middleware(deepseek_model, tool_backend)]
+        create_summarization_tool_middleware(deepseek_model, tool_backend)  # 工具摘要中间件
+        ]
     if model_middleware:
         middleware.append(model_middleware)
 
@@ -40,7 +41,7 @@ def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
                     你会使用工具来帮助用户解决问题。
                     你有跨会话长期记忆目录 /memories/。
                     用户告诉你名字、偏好、长期事实时，写入 /memories/user_profile.md。
-                    新对话开始时先读取该文件。
+                    新对话开始时先读取该文件,并使用工具获取当前日期。
                 """
     system_prompt = SystemMessage(content=sys_message)
 
@@ -52,7 +53,7 @@ def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
         checkpointer=checkpointer,
         store=store,
         system_prompt=system_prompt,
-        tools=[internet_search, get_current_date],
+        tools=[internet_search, get_current_date,get_shop_sale_data],
         middleware=middleware,
         context_schema=Context,
     )

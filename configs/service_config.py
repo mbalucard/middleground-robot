@@ -5,6 +5,7 @@
     - ConfigRedis: Redis配置
     - ConfigAPI: API配置
     - ConfigPostgres: Postgres配置,AI模型长短期记忆存储
+    - DemingMySQL: 德明-mysql配置
 """
 import os
 import dotenv
@@ -48,6 +49,15 @@ class ConfigPostgres:
     DB_URI = f"postgresql://{os.getenv('PS_USER')}:{os.getenv('PS_PASSWORD')}@{os.getenv('PS_HOST')}:{os.getenv('PS_PORT')}/{os.getenv('PS_DATABASE')}"
     MIN_SIZE = 5
     MAX_SIZE = 10
+
+
+class DemingMySQL:
+    """德明-mysql"""
+    type = 'MySQL'
+    user = os.getenv('DemingMySQLUser')
+    password = os.getenv('DemingMySQLPassword')
+    host = f"{os.getenv('DemingMySQLHost')}:{os.getenv('DemingMySQLPort')}"
+    database = 'salus_deming_c'
 
 
 if __name__ == "__main__":
