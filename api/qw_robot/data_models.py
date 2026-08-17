@@ -9,7 +9,7 @@
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.orm import declarative_base
 
-from api.qw_robot.general_tools import get_current_datetime
+from utils.date_time import get_current_datetime
 from utils.db_link import PostgresServer
 
 

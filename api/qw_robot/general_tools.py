@@ -2,19 +2,15 @@
 通用工具
     - new_req_id: 生成唯一请求id
     - get_redis_id: 获取redis id
-    - timestamp: 获取当前时间戳
     - send_json: 发送json数据
-    - get_current_datetime: 获取当前日期时间
 """
 
 import uuid
-import time
 import json
 from configs.service_config import ConfigRedis
 from redis import Redis
 from typing import Literal
 from random import randint
-import datetime
 
 r = Redis(host=ConfigRedis.HOST, port=ConfigRedis.PORT, db=ConfigRedis.DB,
           password=ConfigRedis.PASSWORD, decode_responses=True)
@@ -30,10 +26,9 @@ def new_req_id() -> str:
 
 
 def get_redis_id(
-    key: str, 
+    key: str,
     id_type: Literal['thread_id', 'u_id'] = 'u_id',
-    ttl: int = ConfigRedis.TIMEOUT
-    ) -> str:
+    ttl: int = ConfigRedis.TIMEOUT) -> str:
     """
     获取ID
     Args:
@@ -57,25 +52,6 @@ def get_redis_id(
         r.hset(key, mapping=value)
         r.expire(key, out_time)
         return value[id_type]
-
-
-def timestamp() -> int:
-    """
-    获取当前时间戳
-    Returns:
-        int: 当前时间戳，单位为秒
-    """
-    return int(time.time())
-
-
-def get_current_datetime() -> str:
-    """
-    获取当前日期时间
-    Returns:
-        str: 当前日期时间，格式为YYYY-MM-DD HH:MM:SS
-    """
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
 
 
 async def send_json(ws, payload: dict) -> None:

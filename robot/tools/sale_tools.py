@@ -1,22 +1,13 @@
 from configs.service_config import DemingMySQL
 from utils.async_db_con import AsyncCallSQL, read_sql_language
 from configs.general_config import FilePath
-from datetime import date
+from utils.date_time import get_current_date
 from typing import Optional
 
 from langchain.tools import tool
 
 db_client = AsyncCallSQL(DemingMySQL)
 
-
-
-def get_current_date() -> str:
-    """
-    获取当前日期，格式为YYYY-MM-DD
-    Returns:
-        str: 当前日期，格式为YYYY-MM-DD
-    """
-    return date.today().strftime("%Y-%m-%d")
 
 @tool('get_shop_sale_data', description='获取店铺销售数据')
 async def get_shop_sale_data(
@@ -48,7 +39,8 @@ async def get_shop_sale_data(
         shop_where = f"and sale.shop_name like '%{shop_name}%'"
     else:
         shop_where = ''
-    sql = sql_command.format(star_date=star_date, end_date=end_date, shop_where=shop_where)
+    sql = sql_command.format(
+        star_date=star_date, end_date=end_date, shop_where=shop_where)
     # 执行sql
     df = await db_client.get_data(sql)
     # 检查数据是否为空

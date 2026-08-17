@@ -27,8 +27,8 @@ from o_order sale
     ) sale_cost on sale_cost.tenant_id = sale.tenant_id
     and sale_cost.enterprise_id = sale.enterprise_id
     and sale_cost.order_id = sale.order_id
-    left join salus_base.cm_license ent on ent.tenant_id = sale.tenant_id
-    and ent.enterprise_id = sale.enterprise_id
+    left join salus_base.bs_enterprise ent on ent.tenant_id = sale.tenant_id
+    and ent.id = sale.enterprise_id
 where sale.tenant_id = 2234
     and sale.deleted = 0
     and sale.status = 10

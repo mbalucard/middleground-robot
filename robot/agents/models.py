@@ -17,7 +17,7 @@ deepseek_model = init_chat_model(
     # disabled enabled
     extra_body={"thinking":{"type": "enabled"}},  # 思考类型，disabled 为不思考， enabled 为思考
     model_provider="openai",  # 模型提供者，openai为openai，anthropic为anthropic
-    reasoning_effort="low",  # 推理力度，low为低，high为中，max为高
+    reasoning_effort="high",  # 推理力度，low为低，high为中，max为高
 )
 
 minimax_model = init_chat_model(
