@@ -16,7 +16,7 @@ from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
 
 from robot.tools.ordinary_tool import internet_search, get_current_date
-from robot.tools.sale_tools import get_shop_sale_data
+from robot.tools.sale_tools import get_shop_sale_data, list_shops_with_sales
 from robot.tools.shop_info_tools import get_shop_info
 
 
@@ -37,7 +37,7 @@ def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
     if model_middleware:
         middleware.append(model_middleware)
 
-    tools = [internet_search, get_current_date,get_shop_sale_data,get_shop_info]
+    tools = [internet_search, get_current_date,get_shop_sale_data,get_shop_info, list_shops_with_sales]
 
     sys_message = """
                     你的名字叫Dawn,你是一位乐于助人的AI助手。
