@@ -29,13 +29,18 @@ from o_order sale
     and sale_cost.order_id = sale.order_id
     left join salus_base.bs_enterprise ent on ent.tenant_id = sale.tenant_id
     and ent.id = sale.enterprise_id
+    left join rl_shop_config sto_c on sto_c.tenant_id = sale.tenant_id
+    and sto_c.enterprise_id = sale.enterprise_id
+    and sto_c.shop_code = sale.shop_code
 where sale.tenant_id = 2234
     and sale.deleted = 0
     and sale.status = 10
     and sale.order_sub_type = 1
     and sale.pay_status = 3
     and sale.buyer_order_pay_time between '{star_date}' and '{end_date}' 
-    {shop_where}
+    {shop_name_where} 
+    {shop_code_where}
+    {store_code_where}
 group by sale.tenant_id,
     sale.enterprise_id,
     sale.shop_code,

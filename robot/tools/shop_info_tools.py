@@ -111,11 +111,7 @@ async def get_shop_info(
         res = _shop_info_response(data_list, search_type)
         return res
     elif search_type == 'store':
-        store_group_cols = ['tenant_id', 'tenant_name', 'enterprise_id',
-                            'enterprise_name', 'enterprise_credit_code', 'store_id', 'store_name', 'store_credit_code']
-        store_group_data = data.groupby(store_group_cols, as_index=False).agg(
-            shop_count=('shop_code', 'count'))
-        data_list = dataframe_to_list(store_group_data)
+        data_list = dataframe_to_list(data)
         res = _shop_info_response(data_list, search_type)
         return res
 

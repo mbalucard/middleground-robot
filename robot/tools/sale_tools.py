@@ -9,6 +9,7 @@ from langchain.tools import tool
 db_client = AsyncCallSQL(DemingMySQL)
 data_source = DemingMySQL.data_source
 
+
 @tool('get_shop_sale_data', description='获取店铺销售数据')
 async def get_shop_sale_data(
     star_date: str = get_current_date(),
@@ -17,6 +18,8 @@ async def get_shop_sale_data(
     page: int = 1,
     page_size: int = 20,
     shop_name: Optional[str] = None,
+    shop_code: Optional[str] = None,
+    store_code: Optional[str] = None,
 ):
     """
     获取零售数据
@@ -27,6 +30,8 @@ async def get_shop_sale_data(
         page: 页码
         page_size: 每页条数
         shop_name: 店铺简称
+        shop_code: 店铺编码
+        store_code: 门店编码
     Returns:
         dict: 销售数据
     """
@@ -35,12 +40,21 @@ async def get_shop_sale_data(
     sql_command = read_sql_language(data_path)
     star_date = f'{star_date} 00:00:00'
     end_date = f'{end_date} 23:59:59'
-    if shop_name:
-        shop_where = f"and sale.shop_name like '%{shop_name}%'"
+    if store_code:
+        store_code_where = f"and sto_c.store_code = '{store_code}'"
     else:
-        shop_where = ''
+        store_code_where = ''
+    if shop_code and not store_code:
+        shop_code_where = f"and sale.shop_code = '{shop_code}'"
+    else:
+        shop_code_where = ''
+    if shop_name and not shop_code and not store_code:
+        shop_name_where = f"and sale.shop_name like '%{shop_name}%'"
+    else:
+        shop_name_where = ''
+
     sql = sql_command.format(
-        star_date=star_date, end_date=end_date, shop_where=shop_where)
+        star_date=star_date, end_date=end_date, shop_name_where=shop_name_where, shop_code_where=shop_code_where, store_code_where=store_code_where)
     # 执行sql
     df = await db_client.get_data(sql)
     # 检查数据是否为空
