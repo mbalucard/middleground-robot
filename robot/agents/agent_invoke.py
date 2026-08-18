@@ -42,7 +42,8 @@ def run_agent(
     result = agent.invoke(
         {"messages": [human_message]},
         config=config,
-        context=Context(model=model_name, api_key=api_key, thread_id=thread_id),
+        context=Context(model=model_name, api_key=api_key,
+                        thread_id=thread_id),
         version="v2")
 
     # 检查执行是否被中断
@@ -57,7 +58,8 @@ def run_agent(
         print("="*20+"工具中断信息"+"="*20)
         for action in action_requests:
             review_config = config_map[action["name"]]
-            logger.info(f"Tool Name: {action['name']} -- Args: {action['args']} -- Allowed Decisions: {review_config['allowed_decisions']}")
+            logger.info(
+                f"Tool Name: {action['name']} -- Args: {action['args']} -- Allowed Decisions: {review_config['allowed_decisions']}")
             print(f"Tool Name: {action['name']}")
             print(f"参数: {action['args']}")
             print(f"允许的决策: {review_config['allowed_decisions']}")
@@ -71,7 +73,7 @@ def interrypts_judge(
         agent: CompiledStateGraph,
         thread_id: str = "1001",
         judge_type: Optional[Literal["approve", "reject"]] = None,
-        judge_list: Optional[List(Dict[str, Any])] = None,
+        judge_list: Optional[List[Dict[str, Any]]] = None,
         model_name: Optional[str] = None,
         api_key: Optional[str] = None,):
     """
@@ -105,7 +107,8 @@ def interrypts_judge(
         result_decisions = agent.invoke(
             Command(resume={"decisions": decisions}),
             config=config,
-            context=Context(model=model_name, api_key=api_key, thread_id=thread_id),
+            context=Context(model=model_name, api_key=api_key,
+                            thread_id=thread_id),
             version="v2",
         )
         return result_decisions
@@ -113,12 +116,11 @@ def interrypts_judge(
         return None
 
 
-
 async def stream_agent(
-    agent:CompiledStateGraph,
-    question:str,
-    thread_id:str,
-    user_id:str,
+    agent: CompiledStateGraph,
+    question: str,
+    thread_id: str,
+    user_id: str,
     model_name: Literal["deepseek", "minimax"] = "deepseek",
     api_key: Optional[str] = None,
     message_id: Optional[str] = None,
@@ -143,7 +145,8 @@ async def stream_agent(
     async for chunk in agent.astream(
         {"messages": [human_message]},
         config=config,
-        context=Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id),
+        context=Context(model=model_name, api_key=api_key,
+                        thread_id=thread_id, user_id=user_id),
         stream_mode="updates",  # 流式更新模式
         subgraphs=True,  # 是否显示工具或子代理反馈信息
         version='v2',
@@ -197,7 +200,7 @@ async def stream_agent(
                 if tool_calls:
                     for tool_call in tool_calls:
                         yield f"使用工具：{tool_call.get('name')} - 参数：{tool_call.get('args')}"
-        # 工具返回结果                
+        # 工具返回结果
         elif data.get("tools"):
             tool_msg = data["tools"]["messages"][-1]
             # 工具返回结果存表
@@ -228,6 +231,7 @@ if __name__ == "__main__":
     question = "现在几点了"
     thread_id = 'test01'
     user_id = "test01"
+
     async def main():
         async with postgres_resources() as pg:
             agent = build_agent(checkpointer=pg.checkpointer, store=pg.store)

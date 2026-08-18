@@ -1,134 +1,193 @@
 # middleground-robot
 
-企业微信智能机器人服务：通过 WebSocket 长连接接收企微消息，基于 [DeepAgents](https://github.com/langchain-ai/deepagents) / LangGraph 构建名为 **Dawn** 的 AI 助手，支持流式回复、工具调用与跨会话长期记忆。
+`middleground-robot` 是一个企业微信智能机器人服务。项目通过 WebSocket 长连接接收企微 AI Bot 回调消息，使用 DeepAgents / LangGraph 组织智能体执行，支持流式回复、工具调用、会话缓存，以及基于 PostgreSQL 的持久化记忆与执行状态存储。
 
-## 功能概览
+当前默认智能体名称为 `Dawn`。
 
-- 企业微信 AI Bot WebSocket 订阅、心跳保活、欢迎语与流式文本回复
-- DeepAgent 智能体（DeepSeek / MiniMax），可手动或按消息量自动切换模型
-- 内置工具：联网搜索（Tavily）、获取当前时间
-- PostgreSQL：对话/工具调用落库 + LangGraph Checkpoint / Store（短期状态与长期记忆）
-- Redis：会话 `thread_id` 管理、消息与工具调用的短时缓存
-- 按 `user_id` 隔离的 `/memories/` 长期记忆目录
+## 项目现状概览
+
+当前代码已经实现的核心能力：
+
+- 企业微信 AI Bot WebSocket 订阅、心跳保活、消息回调处理
+- 文本消息的流式回复
+- 基于 DeepAgents 的工具调用型 Agent
+- Redis 维护 `thread_id`、消息中间态和工具调用中间态
+- PostgreSQL 持久化问答记录、工具调用记录，以及 LangGraph checkpoint/store
+- 支持联网搜索、当前时间、店铺信息查询、销售数据查询
+- 通过 `/memories/` 提供跨会话长期记忆能力
+
+当前明确的限制：
+
+- 仅处理 `text` 类型消息，图片、文件等会返回“暂不支持”
+- 运行依赖较多，至少需要企业微信、PostgreSQL、Redis，以及模型相关密钥
+- 销售/店铺类工具还依赖额外的 MySQL 数据源配置
 
 ## 技术栈
 
-| 类别 | 选型 |
-| ------ | ------ |
-| 语言 / 包管理 | Python ≥ 3.14，[uv](https://github.com/astral-sh/uv) |
-| Agent | deepagents、LangGraph、LangChain |
-| 模型 | DeepSeek、MiniMax |
-| 存储 | PostgreSQL（SQLAlchemy / psycopg）、Redis |
-| 接入 | 企业微信 WebSocket（`websockets`） |
-| 搜索 | Tavily |
+- Python `>=3.14`
+- [deepagents](https://github.com/langchain-ai/deepagents)
+- LangGraph / LangChain
+- PostgreSQL
+- Redis
+- WebSocket（`websockets`）
+- Tavily Search
+- pandas / SQLAlchemy / psycopg / aiomysql
 
-## 项目结构
+## 目录结构
 
 ```text
 middleground-robot/
 ├── src/
-│   └── qw_robot_main.py      # 主入口：企微 WS 连接与消息循环
-├── api/qw_robot/               # 企微侧 API 与会话
-│   ├── message_processing.py # 消息回调、流式回复、心跳
-│   ├── session_manager.py    # Redis 缓存 → Postgres 落库
-│   ├── data_models.py        # 表模型与 init_db
-│   ├── data_interaction.py   # 消息 / 工具调用写入
-│   └── general_tools.py      # req_id、thread_id、send_json 等
+│   └── qw_robot_main.py          # 主入口，建立企微 WS 连接并消费消息
+├── api/qw_robot/
+│   ├── message_processing.py     # 消息回调、流式响应、心跳
+│   ├── session_manager.py        # Redis 中间态与 Postgres 落库
+│   ├── data_models.py            # 问答/工具调用表定义与建表
+│   ├── data_interaction.py       # 数据写入逻辑
+│   └── general_tools.py          # req_id、thread_id、send_json
 ├── robot/
-│   ├── agents/               # 智能体构建与调用
-│   │   ├── main_agent.py     # create_deep_agent
-│   │   ├── agent_invoke.py   # invoke / stream / 中断恢复
-│   │   ├── models.py         # 模型实例
-│   │   ├── model_middleware.py
-│   │   ├── model_context.py
-│   │   └── agent_backend.py  # 文件系统 + Store 组合后端
-│   └── tools/                # 工具与记忆资源
-│       ├── ordinary_tool.py  # 搜索、日期
-│       ├── memory_device.py  # Postgres checkpointer / store
-│       └── message_tool.py   # 消息解析与历史修剪
-├── configs/                  # 环境变量驱动的配置
-├── utils/                    # DB / Redis / 日志
-├── main.py                   # 占位（打印 Python 版本）
-├── pyproject.toml
-└── setup.py                  # 可编辑安装：uv pip install -e .
+│   ├── agents/
+│   │   ├── main_agent.py         # Agent 构建入口
+│   │   ├── agent_invoke.py       # 同步调用、流式调用、中断恢复
+│   │   ├── agent_backend.py      # Agent 后端组合
+│   │   ├── model_middleware.py   # 模型选择中间件
+│   │   ├── model_context.py      # Agent 运行上下文
+│   │   └── models.py             # DeepSeek / MiniMax 模型初始化
+│   ├── tools/
+│   │   ├── ordinary_tool.py      # 联网搜索、当前时间
+│   │   ├── sale_tools.py         # 销售数据查询
+│   │   ├── shop_info_tools.py    # 企业/门店/店铺信息查询
+│   │   ├── memory_device.py      # Postgres checkpoint/store 资源
+│   │   └── message_tool.py       # 消息整理工具
+│   └── workspace/                # Agent 工作目录（本地记忆、skills 等）
+├── configs/
+│   ├── api_config.py             # 企微配置
+│   ├── model_config.py           # 模型与搜索配置
+│   ├── service_config.py         # Redis / Postgres / MySQL / 日志配置
+│   └── general_config.py         # 项目路径等通用配置
+├── data/sql/                     # 销售与店铺查询 SQL
+├── utils/                        # DB、Redis、日志等基础设施
+├── main.py                       # 简单占位脚本
+├── pyproject.toml                # 依赖声明
+└── setup.py                      # 可编辑安装入口
 ```
 
-运行时还会使用（默认被 `.gitignore` 忽略，需本地准备）：
-
-- `.env`：密钥与连接信息
-- `logfile/`：滚动日志
-- `robot/workspace/`：Agent 工作区（`AGENTS.md`、`skills/` 等）
-
-## 架构与数据流
+## 运行流程
 
 ```text
-企微用户消息
-    │
-    ▼
-WebSocket (aibot_subscribe / aibot_msg_callback)
-    │
-    ▼
-message_processing.handle_msg_callback
-    │  · Redis 分配 / 续期 thread_id
-    │  · 创建流式气泡「正在思考...」
-    ▼
-stream_agent (DeepAgent + Postgres checkpointer/store)
-    │  · 工具调用过程写入 Redis → Postgres
-    │  · 增量内容通过 aibot_respond_msg (msgtype=stream) 推送
-    ▼
-finish=true 结束流式气泡；问答落库 qw_robot_messages
+企业微信消息
+    ↓
+WebSocket 回调
+    ↓
+handle_msg_callback()
+    ├─ 校验消息类型
+    ├─ 从 Redis 分配/续期 thread_id
+    ├─ 记录消息中间态
+    └─ 创建流式回复气泡
+            ↓
+       stream_agent()
+            ├─ 调用 DeepAgent
+            ├─ 逐步产出文本/工具调用状态
+            ├─ 工具调用结果暂存 Redis
+            └─ 完成后写入 PostgreSQL
+                    ↓
+             企微侧 finish=true 收尾
 ```
 
-长期记忆：`CompositeBackend` 将默认文件操作落到 `robot/workspace/`，`/memories/` 路由到 Postgres `StoreBackend`，按 `user_id` 命名空间隔离。
+## Agent 与工具
 
-## 环境要求
+`robot/agents/main_agent.py` 中会构建主智能体，并挂载以下能力：
 
-- Python **≥ 3.14**（见 `.python-version`）
-- PostgreSQL（对话表 + LangGraph checkpoint/store）
-- Redis（会话与消息缓存）
-- 企业微信 AI 机器人 WebSocket 地址、Bot ID、Secret
-- DeepSeek / MiniMax / Tavily API Key
+- 系统提示词，定义机器人身份 `Dawn`
+- summarization middleware
+- 模型选择 middleware
+- 工具列表：
+  - `internet_search`
+  - `get_current_date`
+  - `get_shop_sale_data`
+  - `list_shops_with_sales`
+  - `get_shop_info`
 
-## 快速开始
+说明：
 
-### 1. 安装依赖
+- 当前代码里 `build_agent()` 默认使用 `manual` 模式的模型中间件
+- `Context.model` 可指定 `deepseek` 或 `minimax`
+- `DynamicModelSelectionMiddleware` 已实现，但当前默认未启用
+
+## 存储设计
+
+### Redis
+
+主要用于短期状态管理：
+
+- 用户会话 `thread_id`
+- 消息处理中间态
+- 工具调用处理中间态
+
+典型 Key：
+
+- `message:{user_id}+{message_id}`
+- `tool_calls:{message_id}+{tool_call_id}`
+
+### PostgreSQL
+
+业务表：
+
+- `qw_robot_messages`
+- `qw_robot_tool_calls`
+
+另外，LangGraph 还会通过 `AsyncPostgresSaver` 和 `AsyncPostgresStore` 自动维护 checkpoint/store 相关表，用于会话状态与长期记忆。
+
+### `/memories/` 长期记忆
+
+Agent 系统提示中要求把用户长期事实写入 `/memories/user_profile.md`。这部分能力依赖 Agent backend 与 Postgres store，目的是让机器人在跨会话时仍能记住用户信息。
+
+## 环境变量
+
+在项目根目录创建 `.env`。
+
+### 企业微信
 
 ```bash
-# 建议使用 uv
-uv sync
-uv pip install -e .
-```
-
-### 2. 配置环境变量
-
-在项目根目录创建 `.env`（勿提交）。主要变量如下：
-
-```bash
-# 企业微信机器人
 QYWX_BOT_URL=
 QYWX_BOT_ID=
 QYWX_BOT_SECRET=
+```
 
-# DeepSeek
+### DeepSeek
+
+```bash
 DEEPSEEK_BASE_URL_OPENAI=
 DEEPSEEK_BASE_URL_ANTHROPIC=
 DEEPSEEK_API_KEY=
+```
 
-# MiniMax
+### MiniMax
+
+```bash
 MINIMAX_ANTHROPIC_URL=
 MINIMAX_KEY=
+```
 
-# Tavily 搜索
+### Tavily
+
+```bash
 TAVILY_API_KEY=
+```
 
-# PostgreSQL
+### PostgreSQL
+
+```bash
 PS_USER=
 PS_PASSWORD=
 PS_HOST=
 PS_PORT=
 PS_DATABASE=
+```
 
-# Redis（可选，有默认值）
+### Redis
+
+```bash
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
@@ -137,80 +196,96 @@ SESSION_TIMEOUT=300
 REDIS_TTL=3600
 ```
 
-### 3. 准备工作区（可选但推荐）
+### 销售查询 MySQL 数据源
+
+```bash
+DemingMySQLUser=
+DemingMySQLPassword=
+DemingMySQLHost=
+DemingMySQLPort=
+```
+
+## 安装与启动
+
+### 1. 安装依赖
+
+推荐使用 `uv`：
+
+```bash
+uv sync
+uv pip install -e .
+```
+
+### 2. 准备工作目录
+
+如果本地还没有 Agent 工作目录，可以先创建：
 
 ```bash
 mkdir -p robot/workspace/skills
-# 可在 robot/workspace/AGENTS.md 中编写 Agent 记忆/指令
 ```
 
-### 4. 启动服务
+### 3. 启动机器人主程序
 
 ```bash
 python -m src.qw_robot_main
-# 或
+```
+
+或：
+
+```bash
 python src/qw_robot_main.py
 ```
 
-启动后会：
+启动后会执行：
 
-1. `init_db()` 创建表 `qw_robot_messages`、`qw_robot_tool_calls`
-2. 连接企微 WebSocket 并 `aibot_subscribe`
-3. 后台心跳（默认 30s）
-4. 收到文本消息后流式调用 Agent 并回复
+1. 初始化 `qw_robot_messages` 与 `qw_robot_tool_calls`
+2. 连接企业微信 WebSocket
+3. 执行 `aibot_subscribe`
+4. 启动心跳协程
+5. 接收文本消息并流式回复
 
-本地单独调试 Agent（不连企微）：
+## 本地调试
+
+调试 Agent 构建：
 
 ```bash
 python -m robot.agents.main_agent
-# 或
+```
+
+调试流式 Agent 调用：
+
+```bash
 python -m robot.agents.agent_invoke
 ```
 
-## 核心模块说明
+说明：这两个调试入口同样依赖模型配置与 PostgreSQL 连接。
 
-### 配置 (`configs/`)
+## 依赖摘要
 
-| 模块 | 作用 |
-| ------ | ------ |
-| `api_config.py` | 企微 Bot URL / ID / Secret |
-| `model_config.py` | DeepSeek、MiniMax、Tavily |
-| `service_config.py` | Postgres、Redis、日志路径、API Host/Port |
-| `general_config.py` | 项目根路径等 |
+`pyproject.toml` 当前声明的主要依赖包括：
 
-### Agent (`robot/agents/`)
+- `deepagents`
+- `langgraph-checkpoint-postgres`
+- `langchain-deepseek`
+- `redis`
+- `psycopg[binary]`
+- `sqlalchemy`
+- `pandas`
+- `aiomysql`
+- `tavily-python`
 
-- **`build_agent`**：`create_deep_agent`，挂载 summarization 中间件、模型选择中间件、工具与系统提示
-- **`stream_agent`**：面向企微的异步流式输出，并同步写入工具调用与最终回答
-- **模型中间件**：`manual`（按 `context.model`）或 `auto`（消息数 > 10 切 MiniMax）
+## 注意事项
 
-### 会话与存储
+- 正式入口是 `src/qw_robot_main.py`，根目录 `main.py` 只是打印 Python 版本的占位脚本
+- `model_config.py` 中部分环境变量会在导入阶段直接校验，缺失时会抛错
+- 如果只想验证企微接入链路但不使用销售类工具，仍建议补齐 MySQL 配置，避免后续工具初始化时出错
+- 日志默认写入 `logfile/app.log`
 
-- Redis Key 示例：`message:{user_id}+{message_id}`、`tool_calls:{message_id}+{tool_call_id}`；用户 `thread_id` 按 userid 哈希缓存
-- 问答与工具调用在流式结束后写入 Postgres
+## 后续可补充
 
-## 数据库表
+如果准备继续完善这个项目，建议优先补这几项：
 
-| 表名 | 说明 |
-|------|------|
-| `qw_robot_messages` | 对话记录（question / answer / thread_id / user_id 等） |
-| `qw_robot_tool_calls` | 工具调用记录（name / input / output） |
-
-另有 LangGraph 通过 `AsyncPostgresSaver` / `AsyncPostgresStore` 自动维护的 checkpoint 与 store 表。
-
-## 当前能力边界
-
-- 企微侧目前仅处理 **文本** 消息；图片/文件等会回复「暂不支持」
-- `main.py` 仅为版本探测占位，正式入口是 `src/qw_robot_main.py`
-- `robot/tools/general_tool.py` 目前为空文件，可扩展自定义工具
-
-## 开发说明
-
-```bash
-# 可编辑安装后，按包路径导入
-uv pip install -e .
-
-# 日志默认写入 logfile/app.log（目录自动创建，已被 gitignore）
-```
-
-依赖声明见 `pyproject.toml`；锁定版本见 `uv.lock`。
+- 增加 `.env.example`
+- 在 `README.md` 中补一张部署架构图
+- 明确企微回调协议版本和接入前置条件
+- 为主要工具和消息链路补充测试用例

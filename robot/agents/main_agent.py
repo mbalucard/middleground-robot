@@ -32,12 +32,14 @@ def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
     model_middleware = get_model_middleware(model_type)
     tool_backend = StateBackend()
     middleware = [
-        create_summarization_tool_middleware(deepseek_model, tool_backend)  # 工具摘要中间件
-        ]
+        create_summarization_tool_middleware(
+            deepseek_model, tool_backend)  # 工具摘要中间件
+    ]
     if model_middleware:
         middleware.append(model_middleware)
 
-    tools = [internet_search, get_current_date,get_shop_sale_data,get_shop_info, list_shops_with_sales]
+    tools = [internet_search, get_current_date,
+             get_shop_sale_data, get_shop_info, list_shops_with_sales]
 
     sys_message = """
                     你的名字叫Dawn,你是一位乐于助人的AI助手。
@@ -62,14 +64,16 @@ def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
     )
     return agent
 
+
 if __name__ == "__main__":
     from robot.agents.agent_invoke import run_agent
     from robot.tools.message_tool import parse_messages
     from robot.tools.memory_device import postgres_resources
     import asyncio
+
     async def main():
         async with postgres_resources() as pg:
             agent = build_agent(checkpointer=pg.checkpointer, store=pg.store)
-            result = await run_agent(agent, "现在几点了？")
+            result = run_agent(agent, "现在几点了？")
             print(parse_messages(result.value["messages"]))
     asyncio.run(main())
