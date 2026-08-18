@@ -58,6 +58,7 @@ class DemingMySQL:
     password = os.getenv('DemingMySQLPassword')
     host = f"{os.getenv('DemingMySQLHost')}:{os.getenv('DemingMySQLPort')}"
     database = 'salus_deming_c'
+    data_source = 'ERP_产线'
 
 
 if __name__ == "__main__":

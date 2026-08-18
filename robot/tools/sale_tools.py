@@ -7,7 +7,7 @@ from typing import Optional
 from langchain.tools import tool
 
 db_client = AsyncCallSQL(DemingMySQL)
-
+data_source = DemingMySQL.data_source
 
 @tool('get_shop_sale_data', description='获取店铺销售数据')
 async def get_shop_sale_data(
@@ -52,7 +52,7 @@ async def get_shop_sale_data(
             "metadata": {
                 "start_date": star_date,
                 "end_date": end_date,
-                "data_source": "ERP_产线",
+                "data_source": data_source,
             }
         }
     # 转换数据类型为float
@@ -93,7 +93,7 @@ async def get_shop_sale_data(
             "metadata": {
                 "start_date": star_date,
                 "end_date": end_date,
-                "data_source": "ERP_产线",
+                "data_source": data_source,
             }
         }
         return summary_dict
@@ -120,7 +120,7 @@ async def get_shop_sale_data(
             "metadata": {
                 "start_date": star_date,
                 "end_date": end_date,
-                "data_source": "ERP_产线"
+                "data_source": data_source
             }
         }
         return data_dict
