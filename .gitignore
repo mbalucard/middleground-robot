@@ -17,3 +17,7 @@ wheels/
 note/
 logfile/
 robot/workspace/
+
+# incomplete
+api/virtue_bright/
+utils/erp_utils/

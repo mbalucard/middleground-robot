@@ -42,7 +42,7 @@ async def main() -> None:
 
         hb = asyncio.create_task(heartbeat_loop(ws))
         async with postgres_resources() as pg:
-            agent = build_agent(checkpointer=pg.checkpointer, store=pg.store)
+            agent = await build_agent(checkpointer=pg.checkpointer, store=pg.store)
             try:
                 while True:
                     raw = await ws.recv()
