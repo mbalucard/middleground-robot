@@ -16,7 +16,7 @@ wheels/
 # note
 note/
 logfile/
-robot/workspace/
+robot/workspace/skills/
 
 # incomplete
 api/virtue_bright/
