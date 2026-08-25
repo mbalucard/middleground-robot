@@ -4,7 +4,7 @@
     - interrypts_judge: AI中断后,人工判断是否继续执行
     - stream_agent: 流式运行智能体
 """
-from typing import Optional, Tuple, Any, Literal, Dict, List
+from typing import Optional, Tuple, Any, Literal, Dict, List, Union
 from langchain_core.messages import HumanMessage
 from robot.agents.model_context import Context, invoke_config
 from langgraph.graph.state import CompiledStateGraph
@@ -17,12 +17,16 @@ from api.qw_robot.session_manager import session_hset, tool_calls_hset
 
 logger = LoggerManager.get_logger(name="agent_invoke")
 
+ModelName = Literal["deepseek", "minimax", "minimax_m3"]
+UserContent = Union[str, List[Dict[str, Any]]]
+
 
 def run_agent(
         agent: CompiledStateGraph,
         query: str,
         thread_id: str = "1001",
-        model_name: Literal["deepseek", "minimax"] = "deepseek",
+        user_id: str = "1001",
+        model_name: ModelName = "deepseek",
         api_key: Optional[str] = None,):
     """
     运行智能体
@@ -30,15 +34,16 @@ def run_agent(
         agent: 智能体
         query(str): 查询字符串
         thread_id(str): 线程ID, default="1001"
+        user_id(str): 用户ID, default="1001"
         model_name(str): 模型名称, default="deepseek"
-            - deepseek minimax
+            - deepseek / minimax / minimax_m3
         api_key(str): 通行密匙 default=None
     Returns:
         智能体响应
     """
     human_message = HumanMessage(content=query)
 
-    config = invoke_config(thread_id)
+    config = invoke_config(thread_id, user_id=user_id)
     result = agent.invoke(
         {"messages": [human_message]},
         config=config,
@@ -121,27 +126,29 @@ async def stream_agent(
     question: str,
     thread_id: str,
     user_id: str,
-    model_name: Literal["deepseek", "minimax"] = "deepseek",
+    model_name: ModelName = "deepseek",
     api_key: Optional[str] = None,
     message_id: Optional[str] = None,
     redis_client: Optional[redis.Redis] = None,
+    user_content: Optional[UserContent] = None,
 ):
     """
     流式运行智能体
     Args:
         agent: 智能体
-        question: 问题
+        question: 问题（兼容旧调用；有 user_content 时仅作兜底）
         thread_id: 线程ID
         user_id: 用户ID
-        model_name: 模型名称
+        model_name: 模型名称 deepseek / minimax / minimax_m3
         api_key: 通行密匙
         message_id: 消息ID
+        user_content: 优先使用的用户消息内容（str 或多模态 content 列表）
     """
     mes_list = []
     # 初始化消息配置
     config = invoke_config(thread_id=thread_id, user_id=user_id)
-    # logger.info(f"config: {config}")
-    human_message = HumanMessage(content=question)
+    content = user_content if user_content is not None else question
+    human_message = HumanMessage(content=content)
     async for chunk in agent.astream(
         {"messages": [human_message]},
         config=config,
