@@ -26,7 +26,14 @@ minimax_model = init_chat_model(
     base_url=MiniMaxModelConfig.BASE_URL_ANTHROPIC,
 )
 
+minimax_model_M3 = init_chat_model(
+    model=MiniMaxModelConfig.MODEL_NAME_M3,
+    api_key=MiniMaxModelConfig.API_KEY,
+    base_url=MiniMaxModelConfig.BASE_URL_ANTHROPIC,
+    # max_tokens=10000,
+)
 
-if __name__ == "__main__":
-    print(deepseek_model.model_dump)
-    print(minimax_model.model_dump)
+if __name__ == "__main__":  
+    print(deepseek_model.model_dump())
+    print(minimax_model.model_dump())
+    print(minimax_model_M3.model_dump())

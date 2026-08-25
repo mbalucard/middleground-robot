@@ -34,6 +34,7 @@ class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")
     API_KEY = _read_env("MINIMAX_KEY")
     MODEL_NAME = "anthropic:MiniMax-M2.7"
+    MODEL_NAME_M3 = "anthropic:MiniMax-M3"
 
 class Tavily:
     API_KEY = _read_env("TAVILY_API_KEY")
