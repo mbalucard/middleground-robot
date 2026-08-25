@@ -6,7 +6,7 @@ import asyncio
 import json
 import websockets
 
-from api.qw_robot.general_tools import send_json, new_req_id
+from api.qw_robot.general_tools import send_json, new_req_id, dispatch_ws_response
 from api.qw_robot.message_processing import handle_msg_callback, heartbeat_loop
 from api.qw_robot.data_models import init_db
 from configs.api_config import QywxBotConfig
@@ -20,6 +20,18 @@ BOT_ID = QywxBotConfig.ID
 SECRET = QywxBotConfig.SECRET
 
 logger = LoggerManager.get_logger(name='qw_robot_main')
+
+
+def _log_task_exception(task: asyncio.Task) -> None:
+    """
+    记录 handle_msg_callback 任务异常
+    """
+    try:
+        exc = task.exception()
+    except asyncio.CancelledError:
+        return
+    if exc:
+        logger.exception(f"handle_msg_callback 任务异常: {exc}")
 
 
 async def main() -> None:  
@@ -49,15 +61,22 @@ async def main() -> None:
                     msg = json.loads(raw)
                     cmd = msg.get("cmd")
 
-                    # ping 的响应没有 cmd，只有 errcode
+                    # ping / aibot_respond_msg 等应答：投递给等待方
+                    if dispatch_ws_response(msg):
+                        continue
+
+                    # ping 的响应没有 cmd，只有 errcode（未被 dispatch 时跳过）
                     if "errcode" in msg and cmd is None:
                         continue
 
                     logger.info(f"msg: {msg}")  # 打印接收到的消息
 
                     if cmd == "aibot_msg_callback":
-                        # 不要阻塞收包太久；复杂 LLM 可 create_task
-                        await handle_msg_callback(ws, msg, agent)
+                        # 图片下载+推理较慢，不阻塞收包
+                        task = asyncio.create_task(
+                            handle_msg_callback(ws, msg, agent)
+                        )
+                        task.add_done_callback(_log_task_exception)
 
                     elif cmd == "aibot_event_callback":
                         event = (msg.get("body") or {}).get("event") or {}

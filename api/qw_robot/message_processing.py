@@ -5,20 +5,83 @@
     - handle_msg_callback: 处理消息回调
 """
 
-from api.qw_robot.general_tools import send_json, new_req_id, get_redis_id
+from api.qw_robot.general_tools import (
+    send_and_wait_response,
+    new_req_id,
+    get_redis_id,
+)
 from api.qw_robot.session_manager import session_hset
+from api.qw_robot.media_handler import MediaError, prepare_image_for_model
+from api.qw_robot.pending_images import (
+    PendingFullError,
+    append_pending_image,
+    clear_pending_images,
+    list_pending_images,
+)
 from robot.agents.agent_invoke import stream_agent
 
 from langgraph.graph.state import CompiledStateGraph
 from utils.logger_manager import LoggerManager
 from utils.redis_link import RedisManager
 
-from typing import Optional
-import json
+from typing import Any, Optional
 import asyncio
 
 logger = LoggerManager.get_logger(name='message_processing')
 r_link = RedisManager()
+
+DEFAULT_IMAGE_PROMPT = "请描述这张图片的内容"
+DEFAULT_MULTI_IMAGE_PROMPT = "请根据这些图片回答"
+
+
+def _parse_mixed_items(body: dict) -> tuple[str, list[dict]]:
+    """
+    解析 mixed.msg_item，返回 (合并后的文本, [{url, aeskey}, ...])。
+    """
+    items = ((body.get("mixed") or {}).get("msg_item")) or []
+    texts: list[str] = []
+    images: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("msgtype")
+        if item_type == "text":
+            content = ((item.get("text") or {}).get("content") or "").strip()
+            if content:
+                texts.append(content)
+        elif item_type == "image":
+            image = item.get("image") or {}
+            url = image.get("url")
+            aeskey = image.get("aeskey")
+            if url and aeskey:
+                images.append({"url": url, "aeskey": aeskey})
+    return "\n".join(texts).strip(), images
+
+
+def _build_vision_user_content(
+    text_prompt: str,
+    image_payloads: list[dict],
+) -> list[dict]:
+    """构造 Anthropic 风格多模态 HumanMessage content。"""
+    blocks: list[dict] = [{"type": "text", "text": text_prompt}]
+    for payload in image_payloads:
+        blocks.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": payload["media_type"],
+                    "data": payload["data"],
+                },
+            }
+        )
+    return blocks
+
+
+def _pending_ready_message(count: int) -> str:
+    if count <= 1:
+        return "图片已就绪。请问你需要我做什么？"
+    return f"又收到 1 张图片，当前共 {count} 张待处理。请问你需要我做什么？"
 
 
 async def respond_stream(
@@ -29,23 +92,10 @@ async def respond_stream(
     *,
     finish: bool = True,
     feedback_id: Optional[str] = None,
-    max_retries: int = 2,          # 额外重试次数：共 1 + 2 = 3 次尝试
-    base_delay: float = 0.3,       # 首次退避 0.3s，再 0.6s …
+    max_retries: int = 2,
+    base_delay: float = 0.3,
 ) -> dict:
-    """
-    发送流式消息
-    Args:
-        ws:  websocket连接
-        callback_req_id: 回调请求id
-        stream_id: 流式消息id
-        content: 消息内容
-        finish: 是否结束
-        feedback_id: 反馈id
-        max_retries: 额外重试次数
-        base_delay: 首次退避时间
-    Returns:
-        dict: 响应
-    """
+    """发送流式消息。"""
     stream_body: dict = {
         "id": stream_id,
         "finish": finish,
@@ -65,25 +115,20 @@ async def respond_stream(
 
     last_resp: dict = {}
     for attempt in range(max_retries + 1):
-        await send_json(ws, payload)
-        last_resp = json.loads(await ws.recv())
-
-        # 心跳/无 cmd 的包可能插进来，按需跳过（若你这边会遇到）
-        # while last_resp.get("cmd") is None and "errcode" in last_resp:
-        #     last_resp = json.loads(await ws.recv())
+        last_resp = await send_and_wait_response(ws, payload)
 
         err = last_resp.get("errcode", 0)
         if err == 0:
             return last_resp
         if err == 6000 and attempt < max_retries:
-            delay = base_delay * (2 ** attempt)  # 0.3, 0.6, …
+            delay = base_delay * (2 ** attempt)
             logger.warning(
                 f"stream 版本冲突(6000), {delay:.1f}s 后重试 "
                 f"attempt={attempt + 1}/{max_retries} stream_id={stream_id}"
             )
             await asyncio.sleep(delay)
             continue
-        return last_resp  # 非 6000，或重试用尽
+        return last_resp
 
     return last_resp
 
@@ -92,8 +137,215 @@ async def heartbeat_loop(ws, interval: float = 30.0) -> None:
     """心跳包"""
     while True:
         await asyncio.sleep(interval)
-        # 发送心跳包
-        await send_json(ws, {"cmd": "ping", "headers": {"req_id": new_req_id()}})
+        try:
+            await send_and_wait_response(
+                ws,
+                {"cmd": "ping", "headers": {"req_id": new_req_id()}},
+                timeout=15.0,
+            )
+        except Exception as e:
+            logger.warning(f"heartbeat 失败: {e}")
+
+
+async def _run_agent_stream(
+    ws,
+    *,
+    agent: CompiledStateGraph,
+    callback_req_id: str,
+    stream_id: str,
+    question: str,
+    thread_id: str,
+    userid: str,
+    r_client,
+    model_name: str = "deepseek",
+    user_content: Any = None,
+    placeholder: str = "正在思考...",
+) -> None:
+    """占位流式气泡 → Agent 流式刷新 → finish。"""
+    await respond_stream(
+        ws,
+        callback_req_id,
+        stream_id,
+        content=placeholder,
+        finish=False,
+        feedback_id=f"fb-{stream_id}",
+    )
+
+    last = ""
+    try:
+        async for partial in stream_agent(
+            agent=agent,
+            question=question,
+            thread_id=thread_id,
+            user_id=userid,
+            message_id=stream_id,
+            redis_client=r_client,
+            model_name=model_name,
+            user_content=user_content,
+        ):
+            last = partial
+            resp = await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content=partial,
+                finish=False,
+            )
+            if resp.get("errcode", 0) != 0:
+                logger.error(f"流式刷新失败: {resp}")
+                return
+    except Exception as e:
+        logger.exception(f"Agent 调用失败: {e}")
+        last = "图片理解失败，请稍后重试" if user_content is not None else "处理失败，请稍后重试"
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content=last,
+            finish=True,
+            feedback_id=f"fb-{stream_id}",
+        )
+        return
+
+    await respond_stream(
+        ws,
+        callback_req_id,
+        stream_id,
+        content=last or "（无内容）",
+        finish=True,
+        feedback_id=f"fb-{stream_id}",
+    )
+
+
+async def _prepare_payloads_from_refs(image_refs: list[dict]) -> list[dict]:
+    """从企微 url+aeskey 下载解密为 payloads。"""
+    payloads: list[dict] = []
+    for ref in image_refs:
+        payloads.append(await prepare_image_for_model(ref["url"], ref["aeskey"]))
+    return payloads
+
+
+async def _handle_vision_flow(
+    ws,
+    *,
+    agent: CompiledStateGraph,
+    callback_req_id: str,
+    stream_id: str,
+    userid: str,
+    thread_id: str,
+    chattype: str,
+    aibot_id: str,
+    r_client,
+    text_prompt: str,
+    image_refs: Optional[list[dict]] = None,
+    image_payloads: Optional[list[dict]] = None,
+    question_prefix: str = "[图片]",
+    clear_pending_after: bool = False,
+    skip_initial_placeholder: bool = False,
+) -> None:
+    """
+    多模态理解并流式文字回复。
+    可传 image_refs（需下载）或已缓存的 image_payloads。
+    """
+    question_for_db = f"{question_prefix} {text_prompt}"
+    await session_hset(
+        redis_client=r_client,
+        message_id=stream_id,
+        user_id=userid,
+        aibot_id=aibot_id,
+        chat_type=chattype,
+        thread_id=thread_id,
+        question=question_for_db,
+    )
+
+    if not skip_initial_placeholder:
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content="正在识别图片...",
+            finish=False,
+            feedback_id=f"fb-{stream_id}",
+        )
+
+    payloads: list[dict] = list(image_payloads or [])
+    try:
+        if image_refs:
+            payloads.extend(await _prepare_payloads_from_refs(image_refs))
+    except MediaError as e:
+        logger.warning(f"图片准备失败: {e.user_message} cause={e.cause}")
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content=e.user_message,
+            finish=True,
+            feedback_id=f"fb-{stream_id}",
+        )
+        return
+    except Exception as e:
+        logger.exception(f"图片准备异常: {e}")
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content="图片解析失败，请重试",
+            finish=True,
+            feedback_id=f"fb-{stream_id}",
+        )
+        return
+
+    if not payloads:
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content="图片下载失败，请重新发送",
+            finish=True,
+            feedback_id=f"fb-{stream_id}",
+        )
+        return
+
+    user_content = _build_vision_user_content(text_prompt, payloads)
+    last = ""
+    try:
+        async for partial in stream_agent(
+            agent=agent,
+            question=question_for_db,
+            thread_id=thread_id,
+            user_id=userid,
+            message_id=stream_id,
+            redis_client=r_client,
+            model_name="minimax_m3",
+            user_content=user_content,
+        ):
+            last = partial
+            resp = await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content=partial,
+                finish=False,
+            )
+            if resp.get("errcode", 0) != 0:
+                logger.error(f"流式刷新失败: {resp}")
+                if clear_pending_after:
+                    await clear_pending_images(r_client, userid, thread_id)
+                return
+    except Exception as e:
+        logger.exception(f"图片理解 Agent 失败: {e}")
+        last = "图片理解失败，请稍后重试"
+
+    await respond_stream(
+        ws,
+        callback_req_id,
+        stream_id,
+        content=last or "（无内容）",
+        finish=True,
+        feedback_id=f"fb-{stream_id}",
+    )
+    if clear_pending_after:
+        await clear_pending_images(r_client, userid, thread_id)
 
 
 async def handle_msg_callback(
@@ -101,94 +353,302 @@ async def handle_msg_callback(
     msg: dict,
     agent: CompiledStateGraph,
 ) -> None:
-    """
-    处理消息回调
-    Args:
-        ws:  websocket连接
-        msg: 消息
-    Returns:
-        None
-    """
+    """处理消息回调。"""
     headers = msg.get("headers") or {}
     body = msg.get("body") or {}
-    callback_req_id = headers["req_id"]  # 同一次回调的所有流式回复都必须用这个
+    callback_req_id = headers["req_id"]
     msgtype = body.get("msgtype")
+    chattype = body.get("chattype", "")
+    stream_id = new_req_id()
+    logger.info(f"stream_id: {stream_id} msgtype={msgtype} chattype={chattype}")
 
-    if msgtype != "text":
-        #! 图片/文件等可按文档处理；这里先只回文本流式
+    from_info = body.get("from") or {}
+    userid = from_info.get("userid")
+    if not userid:
         await respond_stream(
             ws,
             callback_req_id,
-            stream_id=new_req_id(),
-            content=f"暂不支持消息类型：{msgtype}",
+            stream_id,
+            content="无法识别发送者，请重试",
             finish=True,
         )
         return
 
-    question = body["text"]["content"]
-    stream_id = new_req_id()  # 本条流式消息的唯一 id，后续刷新必须复用
-    logger.info(f"stream_id: {stream_id}")
+    thread_id = get_redis_id(key=userid, id_type="thread_id")
+    logger.info(f"msg_body_from: {from_info} - thread_id: {thread_id}")
+    r_client = await r_link.get_client()
+    aibot_id = body.get("aibotid", "")
 
-    # 获取用户信息
-    if 'from' in body:
-        userid = body.get('from').get('userid')
-        thread_id = get_redis_id(key=userid, id_type='thread_id')
-        logger.info(
-            f"msg_body_from: {body.get('from')} - thread_id: {thread_id}")
-        # 文本消息存表
-        r_client = await r_link.get_client()
+    # --- 文本 ---
+    if msgtype == "text":
+        question = (body.get("text") or {}).get("content") or ""
+        pending = await list_pending_images(r_client, userid, thread_id)
+        if pending:
+            await _handle_vision_flow(
+                ws,
+                agent=agent,
+                callback_req_id=callback_req_id,
+                stream_id=stream_id,
+                userid=userid,
+                thread_id=thread_id,
+                chattype=chattype,
+                aibot_id=aibot_id,
+                r_client=r_client,
+                text_prompt=question or DEFAULT_MULTI_IMAGE_PROMPT,
+                image_payloads=pending,
+                question_prefix=f"[图片追问]（{len(pending)}张）",
+                clear_pending_after=True,
+            )
+            return
+
         await session_hset(
             redis_client=r_client,
             message_id=stream_id,
             user_id=userid,
-            aibot_id=body.get('aibotid',''),
-            chat_type=body.get('chattype',''),
+            aibot_id=aibot_id,
+            chat_type=chattype,
             thread_id=thread_id,
             question=question,
         )
+        await _run_agent_stream(
+            ws,
+            agent=agent,
+            callback_req_id=callback_req_id,
+            stream_id=stream_id,
+            question=question,
+            thread_id=thread_id,
+            userid=userid,
+            r_client=r_client,
+            model_name="deepseek",
+            placeholder="正在思考...",
+        )
+        return
 
+    # --- 纯图片：挂起，不即时调模型 ---
+    if msgtype == "image":
+        if chattype == "group":
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content="群聊请 @机器人 并发送图文消息；纯图片请在单聊中发送",
+                finish=True,
+            )
+            return
 
-    # 1) 首次创建流式气泡
-    await respond_stream(
-        ws,
-        callback_req_id,
-        stream_id,
-        content="正在思考...",
-        finish=False,
-        feedback_id=f"fb-{stream_id}",  # 可选
-    )
+        image = body.get("image") or {}
+        url = image.get("url")
+        aeskey = image.get("aeskey")
+        if not url or not aeskey:
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content="图片下载失败，请重新发送",
+                finish=True,
+            )
+            return
 
-    # 2) 主动多次刷新（长连接模式关键：没有企业微信再来轮询你）
-    # 定义返回流式内容
-    last = ""
-
-    async for partial in stream_agent(
-        agent=agent,
-        question=question,
-        thread_id=thread_id,
-        user_id=userid,
-        message_id=stream_id,
-        redis_client=r_client,
-    ):
-        last = partial
-        # logger.info(f"partial: {partial}")
-        resp = await respond_stream(
+        await respond_stream(
             ws,
             callback_req_id,
             stream_id,
-            content=partial,
+            content="正在准备图片...",
             finish=False,
+            feedback_id=f"fb-{stream_id}",
         )
-        if resp.get("errcode", 0) != 0:
-            print("流式刷新失败:", resp)
+
+        try:
+            payload = await prepare_image_for_model(url, aeskey)
+            count = await append_pending_image(
+                r_client, userid, thread_id, payload
+            )
+        except PendingFullError as e:
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content=e.user_message,
+                finish=True,
+                feedback_id=f"fb-{stream_id}",
+            )
+            return
+        except MediaError as e:
+            logger.warning(f"图片准备失败: {e.user_message} cause={e.cause}")
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content=e.user_message,
+                finish=True,
+                feedback_id=f"fb-{stream_id}",
+            )
+            return
+        except Exception as e:
+            logger.exception(f"图片挂起异常: {e}")
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content="图片解析失败，请重试",
+                finish=True,
+                feedback_id=f"fb-{stream_id}",
+            )
             return
 
-    # 3) 10 分钟内必须 finish=true，否则服务端会自动结束
+        await session_hset(
+            redis_client=r_client,
+            message_id=stream_id,
+            user_id=userid,
+            aibot_id=aibot_id,
+            chat_type=chattype,
+            thread_id=thread_id,
+            question=f"[图片挂起] 第{count}张",
+        )
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content=_pending_ready_message(count),
+            finish=True,
+            feedback_id=f"fb-{stream_id}",
+        )
+        return
+
+    # --- 图文混排：合并挂起图 + 本次图文后作答 ---
+    if msgtype == "mixed":
+        text_part, image_refs = _parse_mixed_items(body)
+        pending = await list_pending_images(r_client, userid, thread_id)
+
+        if not text_part and not image_refs and not pending:
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content="未识别到有效的图文内容，请重试",
+                finish=True,
+            )
+            return
+
+        # 仅有文字、无本次图且无挂起：普通文本
+        if text_part and not image_refs and not pending:
+            await session_hset(
+                redis_client=r_client,
+                message_id=stream_id,
+                user_id=userid,
+                aibot_id=aibot_id,
+                chat_type=chattype,
+                thread_id=thread_id,
+                question=text_part,
+            )
+            await _run_agent_stream(
+                ws,
+                agent=agent,
+                callback_req_id=callback_req_id,
+                stream_id=stream_id,
+                question=text_part,
+                thread_id=thread_id,
+                userid=userid,
+                r_client=r_client,
+                model_name="deepseek",
+                placeholder="正在思考...",
+            )
+            return
+
+        # 解密本次 mixed 图片，再与挂起合并
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content="正在识别图片...",
+            finish=False,
+            feedback_id=f"fb-{stream_id}",
+        )
+
+        mixed_payloads: list[dict] = []
+        try:
+            if image_refs:
+                mixed_payloads = await _prepare_payloads_from_refs(image_refs)
+        except MediaError as e:
+            logger.warning(f"mixed 图片准备失败: {e.user_message} cause={e.cause}")
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content=e.user_message,
+                finish=True,
+                feedback_id=f"fb-{stream_id}",
+            )
+            return
+        except Exception as e:
+            logger.exception(f"mixed 图片准备异常: {e}")
+            await respond_stream(
+                ws,
+                callback_req_id,
+                stream_id,
+                content="图片解析失败，请重试",
+                finish=True,
+                feedback_id=f"fb-{stream_id}",
+            )
+            return
+
+        all_payloads = list(pending) + mixed_payloads
+        if not all_payloads:
+            # 理论上不应到这（上面已分流）；兜底当纯文本
+            await session_hset(
+                redis_client=r_client,
+                message_id=stream_id,
+                user_id=userid,
+                aibot_id=aibot_id,
+                chat_type=chattype,
+                thread_id=thread_id,
+                question=text_part or "",
+            )
+            await _run_agent_stream(
+                ws,
+                agent=agent,
+                callback_req_id=callback_req_id,
+                stream_id=stream_id,
+                question=text_part or DEFAULT_MULTI_IMAGE_PROMPT,
+                thread_id=thread_id,
+                userid=userid,
+                r_client=r_client,
+                model_name="deepseek",
+                placeholder="正在思考...",
+            )
+            return
+
+        text_prompt = text_part or DEFAULT_MULTI_IMAGE_PROMPT
+        prefix = (
+            f"[图文合并]（含挂起{len(pending)}张）"
+            if pending
+            else "[图文]"
+        )
+        # 已发过「正在识别图片...」，_handle_vision_flow 会再发一次占位；
+        # 为避免重复气泡，此处直接组内容并走 stream（复用 _handle_vision_flow 逻辑）
+        await _handle_vision_flow(
+            ws,
+            agent=agent,
+            callback_req_id=callback_req_id,
+            stream_id=stream_id,
+            userid=userid,
+            thread_id=thread_id,
+            chattype=chattype,
+            aibot_id=aibot_id,
+            r_client=r_client,
+            text_prompt=text_prompt,
+            image_payloads=all_payloads,
+            question_prefix=prefix,
+            clear_pending_after=True,
+            skip_initial_placeholder=True,
+        )
+        return
+
+    # --- 其他类型 ---
     await respond_stream(
         ws,
         callback_req_id,
         stream_id,
-        content=last,
+        content=f"暂不支持消息类型：{msgtype}",
         finish=True,
-        feedback_id=f"fb-{stream_id}",
     )

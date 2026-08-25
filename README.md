@@ -10,15 +10,19 @@
 
 - 企业微信 AI Bot WebSocket 订阅、心跳保活、消息回调处理
 - 文本消息的流式回复
+- 单聊纯图片挂起（`image`：下载解密写入 Redis，最多 5 张 / 10 分钟；固定话术等待下一问，不立刻描述内容）
+- 挂起图追问：同用户同 `thread_id` 的后续 `text` 或 `mixed` 会带上挂起图（`mixed` 再合并本次附图）交由 MiniMax-M3 文字回复，答完清空
 - 基于 DeepAgents 的工具调用型 Agent
-- Redis 维护 `thread_id`、消息中间态和工具调用中间态
+- Redis 维护 `thread_id`、消息中间态、工具调用中间态与纯图挂起队列
 - PostgreSQL 持久化问答记录、工具调用记录，以及 LangGraph checkpoint/store
 - 支持联网搜索、当前时间、店铺信息查询、销售数据查询
 - 通过 `/memories/` 提供跨会话长期记忆能力
 
 当前明确的限制：
 
-- 仅处理 `text` 类型消息，图片、文件等会返回“暂不支持”
+- 群聊纯图片（`image`）企微通常不回调；请用 @机器人 + 图文（`mixed`）或单聊发图
+- 纯图挂起满 5 张后拒绝再追加纯图；发 `mixed` 仍可与挂起图合并作答
+- 不支持机器人回复图片；文件、语音、视频等仍返回“暂不支持”
 - 运行依赖较多，至少需要企业微信、PostgreSQL、Redis，以及模型相关密钥
 - 销售/店铺类工具还依赖额外的 MySQL 数据源配置
 
@@ -41,10 +45,12 @@ middleground-robot/
 │   └── qw_robot_main.py          # 主入口，建立企微 WS 连接并消费消息
 ├── api/qw_robot/
 │   ├── message_processing.py     # 消息回调、流式响应、心跳
+│   ├── media_handler.py          # 企微图片下载与 AES 解密
+│   ├── pending_images.py         # 纯图 Redis 挂起队列
 │   ├── session_manager.py        # Redis 中间态与 Postgres 落库
 │   ├── data_models.py            # 问答/工具调用表定义与建表
 │   ├── data_interaction.py       # 数据写入逻辑
-│   └── general_tools.py          # req_id、thread_id、send_json
+│   └── general_tools.py          # req_id、thread_id、send_json、WS 应答分发
 ├── robot/
 │   ├── agents/
 │   │   ├── main_agent.py         # Agent 构建入口
@@ -111,7 +117,7 @@ handle_msg_callback()
 说明：
 
 - 当前代码里 `build_agent()` 默认使用 `manual` 模式的模型中间件
-- `Context.model` 可指定 `deepseek` 或 `minimax`
+- `Context.model` 可指定 `deepseek`、`minimax` 或 `minimax_m3`（有图消息会走 `minimax_m3`）
 - `DynamicModelSelectionMiddleware` 已实现，但当前默认未启用
 
 ## 存储设计
