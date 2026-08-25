@@ -158,16 +158,14 @@ async def stream_agent(
             # 工具调用存表
             tool_calls = msg.tool_calls
             if tool_calls and redis_client:
-                tool_call_id = tool_calls[-1].get("id")
-                tool_name = tool_calls[-1].get("name")
-                tool_input = tool_calls[-1].get("args")
-                await tool_calls_hset(
-                    redis_client=redis_client,
-                    message_id=message_id,
-                    tool_call_id=tool_call_id,
-                    tool_name=tool_name,
-                    tool_input=str(tool_input),
-                )
+                for tool_call in tool_calls:
+                    await tool_calls_hset(
+                        redis_client=redis_client,
+                        message_id=message_id,
+                        tool_call_id=tool_call.get("id"),
+                        tool_name=tool_call.get("name"),
+                        tool_input=str(tool_call.get("args")),
+                    )
             # 消息处理
             content = msg.content
             # 纯字符串：直接当回答
@@ -196,7 +194,7 @@ async def stream_agent(
                         yield f"思考中：{t}"
             # 工具调用及参数
             if not content:
-                logger.info(f"tool_calls: {tool_calls}")
+                logger.info(f"tool_calls 调用参数列表: {tool_calls}")
                 if tool_calls:
                     for tool_call in tool_calls:
                         yield f"使用工具：{tool_call.get('name')} - 参数：{tool_call.get('args')}"

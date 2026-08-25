@@ -10,5 +10,9 @@ mcp_server_configs = {
     "企业微信通讯录": {
         "transport": "streamable_http",
         "url": os.getenv("QYWX_MCP_TOOL_USER_URL")
-    }
+    },
+    "企业微信会议": {
+        "transport": "streamable_http",
+        "url": os.getenv("QYWX_MCP_TOOL_MEETING_URL")
+    },
 }

@@ -36,6 +36,14 @@ def dataframe_to_list(data: DataFrame) -> List[Dict]:
 
 
 def _shop_info_response(data_list: List[Dict], search_type: Literal['enterprise', 'store', 'shop']) -> Dict:
+    """
+    机构信息响应
+    Args:
+        data_list: 数据列表
+        search_type: 数据类型
+    Returns:
+        dict: 机构信息响应
+    """
     if data_list:
         response = {
             "status": "success",
@@ -66,6 +74,14 @@ def _search_name_where(
     search_name: Optional[str],
     search_type: Literal['enterprise', 'store', 'shop']
 ) -> str:
+    """
+    搜索名称条件
+    Args:
+        search_name: 搜索名称
+        search_type: 数据类型
+    Returns:
+        str: 搜索名称条件
+    """
     if search_name:
         if search_type == 'enterprise':
             return f"and ent.name like '%{search_name}%'"
