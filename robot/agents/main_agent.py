@@ -5,7 +5,7 @@
 
 from pathlib import Path
 
-from deepagents import create_deep_agent
+from deepagents import create_deep_agent, FilesystemPermission
 from deepagents.backends import StateBackend
 from deepagents.middleware.summarization import create_summarization_tool_middleware
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -23,27 +23,42 @@ from robot.tools.sale_tools import get_shop_sale_data, list_shops_with_sales
 from robot.tools.shop_info_tools import get_shop_info
 from robot.tools.mcp_server_tools import QwMcp
 
-_SYS_MESSAGE_PATH = Path(FilePath.ROOT_PATH) / "robot" / "workspace" / "sys_message.md"
+_SYS_MESSAGE_PATH = Path(FilePath.ROOT_PATH) / \
+    "robot" / "workspace" / "sys_message.md"
 
 
 async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresStore):
     """
     构建代理
+    Args:
+        checkpointer: 检查点
+        store: 存储
+    Returns:
+        agent: 代理
     """
+
     backend = make_backend()
     skills = ["skills"]
-    memory = ["AGENTS.md","me/SOUL.md","me/IDENTITY.md","me/MEMORY.md"]
+    memory = ["AGENTS.md", "me/SOUL.md", "me/IDENTITY.md", "me/MEMORY.md"]
+    # 文件权限管控
+    permissions = [
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/skills/**", "/sys_message.md", "/AGENTS.md"],
+            mode="deny"
+        )
+    ]
 
-    model_type = "manual"
+    model_type = "manual"  # 模型中间件参数
     model_middleware = get_model_middleware(model_type)
-    tool_backend = StateBackend()
+    tool_backend = StateBackend()  # 工具摘要中间件参数
     middleware = [
         create_summarization_tool_middleware(
             deepseek_model, tool_backend)  # 工具摘要中间件
     ]
     if model_middleware:
         middleware.append(model_middleware)
-
+    # MCP工具
     qw_mcp = QwMcp()
     mcp_tools = await qw_mcp.get_tools()
 
@@ -56,6 +71,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
     agent = create_deep_agent(
         model=deepseek_model,
         backend=backend,
+        permissions=permissions,
         skills=skills,
         memory=memory,
         checkpointer=checkpointer,
