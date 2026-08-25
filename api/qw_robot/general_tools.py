@@ -13,9 +13,9 @@ from configs.service_config import ConfigRedis
 from redis import Redis
 from typing import Literal
 from random import randint
+from utils.redis_link import RedisManager
 
-r = Redis(host=ConfigRedis.HOST, port=ConfigRedis.PORT, db=ConfigRedis.DB,
-          password=ConfigRedis.PASSWORD, decode_responses=True)
+r_link = RedisManager()
 
 # 长连接并发任务时，主循环统一收包，按 req_id 投递给等待方
 _pending_responses: dict[str, asyncio.Future] = {}
@@ -70,10 +70,10 @@ def new_req_id() -> str:
     return str(uuid.uuid4())
 
 
-def get_redis_id(
-    key: str,
-    id_type: Literal['thread_id', 'u_id'] = 'u_id',
-    ttl: int = ConfigRedis.TIMEOUT) -> str:
+async def get_redis_id(
+        key: str,
+        id_type: Literal['thread_id', 'u_id'] = 'u_id',
+        ttl: int = ConfigRedis.TIMEOUT) -> str:
     """
     获取ID
     Args:
@@ -85,17 +85,18 @@ def get_redis_id(
     Returns:
         str: ID
     """
+    r_client = await r_link.get_client()
     out_time = ttl + randint(1, 30)
-    if r.exists(key):
-        r.expire(key, out_time)
-        return r.hget(key, id_type)
+    if await r_client.exists(key):
+        await r_client.expire(key, out_time)
+        return await r_client.hget(key, id_type)
     else:
         if id_type == 'thread_id':
             value = {'key': key, id_type: f"t-{str(uuid.uuid4())}"}
         else:
             value = {'key': key, id_type: f"u-{str(uuid.uuid4())}"}
-        r.hset(key, mapping=value)
-        r.expire(key, out_time)
+        await r_client.hset(key, mapping=value)
+        await r_client.expire(key, out_time)
         return value[id_type]
 
 
@@ -109,3 +110,8 @@ async def send_json(ws, payload: dict) -> None:
         None
     """
     await ws.send(json.dumps(payload, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    import asyncio
+    print(asyncio.run(get_redis_id(key="test", id_type="thread_id")))

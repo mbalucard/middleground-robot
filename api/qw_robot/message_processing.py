@@ -360,7 +360,8 @@ async def handle_msg_callback(
     msgtype = body.get("msgtype")
     chattype = body.get("chattype", "")
     stream_id = new_req_id()
-    logger.info(f"stream_id: {stream_id} msgtype={msgtype} chattype={chattype}")
+    logger.info(
+        f"stream_id: {stream_id} msgtype={msgtype} chattype={chattype}")
 
     from_info = body.get("from") or {}
     userid = from_info.get("userid")
@@ -374,7 +375,7 @@ async def handle_msg_callback(
         )
         return
 
-    thread_id = get_redis_id(key=userid, id_type="thread_id")
+    thread_id = await get_redis_id(key=userid, id_type="thread_id")
     logger.info(f"msg_body_from: {from_info} - thread_id: {thread_id}")
     r_client = await r_link.get_client()
     aibot_id = body.get("aibotid", "")
