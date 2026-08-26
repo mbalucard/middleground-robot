@@ -3,7 +3,7 @@
     - 手动选择模型: configurable_model
     - 自动选择模型: dynamic_model_selection
     - get_model_middleware: 获取模型中间件
-    - 非 vision 调用前剥掉历史图片块（A+2）
+    - 非 vision 调用前剥掉历史图片块
 """
 
 from collections.abc import Awaitable, Callable
