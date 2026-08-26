@@ -136,6 +136,10 @@ provider: Literal["openai", "anthropic"] = "openai"
 
 注意：这里的 `anthropic` **不是** DeepSeek 的 Anthropic 兼容端点（`/anthropic`），而是「Anthropic 风格多模态 content + MiniMax-M3」。切换识图后端时，改 `_handle_vision_flow` 的 `provider` 默认值（或调用处传入）即可；纯图 Redis 挂起仍只存 `{media_type, data}`，与协议无关。
 
+### 非 vision 回合剥图（A+2）
+
+同 `thread_id` 识图后，checkpoint 里仍保留带图的 HumanMessage。后续纯文本默认走 `deepseek`（非 vision）时，`ConfigurableModelMiddleware` 会在**本次请求视图**中剥掉 `image` / `image_url` 等块，并补提示「具体内容见后续助手对该图的描述」——不写回 checkpoint，也不强制全程 vision。追问图中细节依赖此前 vision 助手的文字回复；再次走 `deepseek_vision` / `minimax_m3` 时仍原样带图。
+
 ## 存储设计
 
 ### Redis
