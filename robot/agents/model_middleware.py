@@ -10,7 +10,7 @@ from typing import Literal
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 
-from robot.agents.models import deepseek_model, minimax_model, minimax_model_M3
+from robot.agents.models import deepseek_model, minimax_model, minimax_model_M3, deepseek_model_vision
 
 
 class DynamicModelSelectionMiddleware(AgentMiddleware):
@@ -50,6 +50,8 @@ class ConfigurableModelMiddleware(AgentMiddleware):
             return minimax_model
         if model_name == "minimax_m3":
             return minimax_model_M3
+        if model_name == "deepseek_vision":
+            return deepseek_model_vision
         return deepseek_model
 
     def wrap_model_call(

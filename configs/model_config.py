@@ -29,6 +29,7 @@ class DeepSeekModelConfig:
     BASE_URL_ANTHROPIC = _read_env("DEEPSEEK_BASE_URL_ANTHROPIC")
     API_KEY = _read_env("DEEPSEEK_API_KEY")
     MODEL_NAME = "deepseek-v4-flash"
+    MODEL_NAME_VISION = "deepseek-v4-flash-vision-exp"
 
 class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")
