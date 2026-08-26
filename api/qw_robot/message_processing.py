@@ -19,21 +19,22 @@ from api.qw_robot.pending_images import (
     list_pending_images,
 )
 from robot.agents.agent_invoke import stream_agent
+from robot.agents.message_content import (
+    DEFAULT_MULTI_IMAGE_PROMPT,
+    VisionProvider,
+    build_vision_user_content,
+    vision_model_name,
+)
 
 from langgraph.graph.state import CompiledStateGraph
 from utils.logger_manager import LoggerManager
 from utils.redis_link import RedisManager
 
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 import asyncio
 
 logger = LoggerManager.get_logger(name='message_processing')
 r_link = RedisManager()
-
-DEFAULT_IMAGE_PROMPT = "请描述这张图片的内容"
-DEFAULT_MULTI_IMAGE_PROMPT = "请根据这些图片回答"
-
-VisionProvider = Literal["openai", "anthropic"]
 
 
 def _parse_mixed_items(body: dict) -> tuple[str, list[dict]]:
@@ -58,49 +59,6 @@ def _parse_mixed_items(body: dict) -> tuple[str, list[dict]]:
             if url and aeskey:
                 images.append({"url": url, "aeskey": aeskey})
     return "\n".join(texts).strip(), images
-
-
-def _vision_model_name(provider: VisionProvider) -> str:
-    """provider → stream_agent model_name。"""
-    return "deepseek_vision" if provider == "openai" else "minimax_m3"
-
-
-def _build_vision_user_content(
-    text_prompt: str,
-    image_payloads: list[dict],
-    provider: VisionProvider = "openai",
-) -> list[dict]:
-    """
-    构造多模态 HumanMessage content。
-    - openai: OpenAI Chat Completions 风格（DeepSeek Vision）
-    - anthropic: Anthropic Messages 风格（MiniMax-M3）
-    """
-    blocks: list[dict] = [{"type": "text", "text": text_prompt}]
-    for payload in image_payloads:
-        media_type = payload["media_type"]
-        data = payload["data"]
-        if provider == "openai":
-            blocks.append(
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{media_type};base64,{data}",
-                        "detail": "auto",
-                    },
-                }
-            )
-        else:
-            blocks.append(
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": media_type,
-                        "data": data,
-                    },
-                }
-            )
-    return blocks
 
 
 def _pending_ready_message(count: int) -> str:
@@ -333,7 +291,7 @@ async def _handle_vision_flow(
         )
         return
 
-    user_content = _build_vision_user_content(
+    user_content = build_vision_user_content(
         text_prompt, payloads, provider=provider
     )
     last = ""
@@ -345,7 +303,7 @@ async def _handle_vision_flow(
             user_id=userid,
             message_id=stream_id,
             redis_client=r_client,
-            model_name=_vision_model_name(provider),
+            model_name=vision_model_name(provider),
             user_content=user_content,
         ):
             last = partial

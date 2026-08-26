@@ -2,32 +2,25 @@
 企微媒体处理
     - download_encrypted_media: 下载加密媒体
     - decrypt_wecom_media: AES 解密
-    - image_to_base64_payload: 识别格式并转 base64
-    - prepare_image_for_model: 统一入口
+    - prepare_image_for_model: 统一入口（下载解密后转模型 payload）
 """
 
 from __future__ import annotations
 
 import base64
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import httpx
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
+from robot.agents.message_content import (
+    ImageContentError,
+    image_to_base64_payload,
+)
 from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="media_handler")
-
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # MiniMax 单图上限 10MB
-
-_MAGIC_TYPES: list[tuple[bytes, str]] = [
-    (b"\xff\xd8\xff", "image/jpeg"),
-    (b"\x89PNG\r\n\x1a\n", "image/png"),
-    (b"GIF87a", "image/gif"),
-    (b"GIF89a", "image/gif"),
-    (b"RIFF", "image/webp"),  # WEBP 还需进一步校验
-]
 
 
 class ImagePayload(TypedDict):
@@ -54,22 +47,6 @@ def _parse_aeskey(aeskey: str) -> bytes:
         return base64.b64decode(padded)
     except Exception as e:
         raise MediaError("图片解析失败，请重试", cause=e) from e
-
-
-def detect_image_media_type(data: bytes) -> str:
-    """根据文件头识别图片 MIME。"""
-    if data.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
-        return "image/gif"
-    # WEBP: RIFF....WEBP
-    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    raise MediaError(
-        "图片过大或格式不支持（请发 jpeg/png/gif/webp，≤10MB）"
-    )
 
 
 async def download_encrypted_media(url: str, *, timeout: float = 30.0) -> bytes:
@@ -109,25 +86,11 @@ def decrypt_wecom_media(ciphertext: bytes, aeskey: str) -> bytes:
         raise MediaError("图片解析失败，请重试", cause=e) from e
 
 
-def image_to_base64_payload(raw_bytes: bytes) -> ImagePayload:
-    """校验大小与格式，转为模型可用的 base64 payload。"""
-    if len(raw_bytes) > MAX_IMAGE_BYTES:
-        raise MediaError(
-            "图片过大或格式不支持（请发 jpeg/png/gif/webp，≤10MB）"
-        )
-    if len(raw_bytes) < 5:
-        raise MediaError(
-            "图片过大或格式不支持（请发 jpeg/png/gif/webp，≤10MB）"
-        )
-    media_type = detect_image_media_type(raw_bytes)
-    return {
-        "media_type": media_type,
-        "data": base64.b64encode(raw_bytes).decode("ascii"),
-    }
-
-
 async def prepare_image_for_model(url: str, aeskey: str) -> ImagePayload:
     """下载、解密并封装为模型输入。"""
     encrypted = await download_encrypted_media(url)
     raw = decrypt_wecom_media(encrypted, aeskey)
-    return image_to_base64_payload(raw)
+    try:
+        return cast(ImagePayload, image_to_base64_payload(raw))
+    except ImageContentError as e:
+        raise MediaError(e.user_message, cause=e) from e

@@ -58,6 +58,7 @@ middleground-robot/
 │   │   ├── agent_backend.py      # Agent 后端组合
 │   │   ├── model_middleware.py   # 模型选择中间件
 │   │   ├── model_context.py      # Agent 运行上下文
+│   │   ├── message_content.py    # 多模态 content 拼装与剥图
 │   │   └── models.py             # DeepSeek / MiniMax 模型初始化
 │   ├── tools/
 │   │   ├── ordinary_tool.py      # 联网搜索、当前时间
@@ -123,7 +124,7 @@ handle_msg_callback()
 
 ### 识图 provider（`openai` / `anthropic`）
 
-`api/qw_robot/message_processing.py` 中 `_handle_vision_flow` / `_build_vision_user_content` 使用参数：
+多模态 content 拼装与 provider → 模型映射在 `robot/agents/message_content.py`（`build_vision_user_content` / `vision_model_name`）。企微侧 `_handle_vision_flow` 传入：
 
 ```python
 provider: Literal["openai", "anthropic"] = "openai"
@@ -138,7 +139,7 @@ provider: Literal["openai", "anthropic"] = "openai"
 
 ### 非 vision 回合剥图（A+2）
 
-同 `thread_id` 识图后，checkpoint 里仍保留带图的 HumanMessage。后续纯文本默认走 `deepseek`（非 vision）时，`ConfigurableModelMiddleware` 会在**本次请求视图**中剥掉 `image` / `image_url` 等块，并补提示「具体内容见后续助手对该图的描述」——不写回 checkpoint，也不强制全程 vision。追问图中细节依赖此前 vision 助手的文字回复；再次走 `deepseek_vision` / `minimax_m3` 时仍原样带图。
+同 `thread_id` 识图后，checkpoint 里仍保留带图的 HumanMessage。后续纯文本默认走 `deepseek`（非 vision）时，`ConfigurableModelMiddleware` 通过 `message_content.strip_images_from_messages` 在**本次请求视图**中剥掉 `image` / `image_url` 等块，并补提示「具体内容见后续助手对该图的描述」——不写回 checkpoint，也不强制全程 vision。追问图中细节依赖此前 vision 助手的文字回复；再次走 `deepseek_vision` / `minimax_m3` 时仍原样带图。
 
 ## 存储设计
 

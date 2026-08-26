@@ -13,6 +13,7 @@ from langgraph.types import Command
 import redis.asyncio as redis
 
 from utils.logger_manager import LoggerManager
+#! 反向依赖，后续解决
 from api.qw_robot.session_manager import session_hset, tool_calls_hset
 
 logger = LoggerManager.get_logger(name="agent_invoke")
