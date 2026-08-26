@@ -2,12 +2,6 @@
 异步数据库管理
     - read_sql_language: 读取sql文件内容
     - AsyncCallSQL: 异步数据库管理
-        - __init__: 初始化数据库连接
-        - get_data: 获取数据
-        - implement: 执行语句
-        - to_sql: 将数据插入数据库
-        - update: 更新数据库
-        - close: 关闭数据库连接
 """
 
 import pandas as pd

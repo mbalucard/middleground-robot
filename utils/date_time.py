@@ -1,5 +1,8 @@
 """
 日期时间工具
+    - get_current_date: 获取当前日期，格式为YYYY-MM-DD
+    - timestamp: 获取当前时间戳(单位为秒)
+    - get_current_datetime: 获取当前日期时间, 格式为: YYYY-MM-DD HH:MM:SS
 """
 
 from datetime import date, datetime

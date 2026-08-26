@@ -131,8 +131,7 @@ async def stream_agent(
     api_key: Optional[str] = None,
     message_id: Optional[str] = None,
     redis_client: Optional[redis.Redis] = None,
-    user_content: Optional[UserContent] = None,
-):
+    user_content: Optional[UserContent] = None,):
     """
     流式运行智能体
     Args:
