@@ -17,7 +17,7 @@ from api.qw_robot.session_manager import session_hset, tool_calls_hset
 
 logger = LoggerManager.get_logger(name="agent_invoke")
 
-ModelName = Literal["deepseek", "minimax", "minimax_m3"]
+ModelName = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
 UserContent = Union[str, List[Dict[str, Any]]]
 
 
@@ -36,7 +36,7 @@ def run_agent(
         thread_id(str): 线程ID, default="1001"
         user_id(str): 用户ID, default="1001"
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax / minimax_m3
+            - deepseek / minimax / minimax_m3 / deepseek_vision
         api_key(str): 通行密匙 default=None
     Returns:
         智能体响应
@@ -139,7 +139,7 @@ async def stream_agent(
         question: 问题（兼容旧调用；有 user_content 时仅作兜底）
         thread_id: 线程ID
         user_id: 用户ID
-        model_name: 模型名称 deepseek / minimax / minimax_m3
+        model_name: 模型名称 deepseek / minimax / minimax_m3 / deepseek_vision
         api_key: 通行密匙
         message_id: 消息ID
         user_content: 优先使用的用户消息内容（str 或多模态 content 列表）

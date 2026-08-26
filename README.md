@@ -11,7 +11,7 @@
 - 企业微信 AI Bot WebSocket 订阅、心跳保活、消息回调处理
 - 文本消息的流式回复
 - 单聊纯图片挂起（`image`：下载解密写入 Redis，最多 5 张 / 10 分钟；固定话术等待下一问，不立刻描述内容）
-- 挂起图追问：同用户同 `thread_id` 的后续 `text` 或 `mixed` 会带上挂起图（`mixed` 再合并本次附图）交由 MiniMax-M3 文字回复，答完清空
+- 挂起图追问：同用户同 `thread_id` 的后续 `text` 或 `mixed` 会带上挂起图（`mixed` 再合并本次附图）交由识图模型文字回复，答完清空（默认 DeepSeek Vision）
 - 基于 DeepAgents 的工具调用型 Agent
 - Redis 维护 `thread_id`、消息中间态、工具调用中间态与纯图挂起队列
 - PostgreSQL 持久化问答记录、工具调用记录，以及 LangGraph checkpoint/store
@@ -117,8 +117,24 @@ handle_msg_callback()
 说明：
 
 - 当前代码里 `build_agent()` 默认使用 `manual` 模式的模型中间件
-- `Context.model` 可指定 `deepseek`、`minimax` 或 `minimax_m3`（有图消息会走 `minimax_m3`）
+- `Context.model` 可指定 `deepseek`、`minimax`、`minimax_m3` 或 `deepseek_vision`
+- 有图消息默认走 `deepseek_vision`（见下方识图 provider）；可切到 `minimax_m3`
 - `DynamicModelSelectionMiddleware` 已实现，但当前默认未启用
+
+### 识图 provider（`openai` / `anthropic`）
+
+`api/qw_robot/message_processing.py` 中 `_handle_vision_flow` / `_build_vision_user_content` 使用参数：
+
+```python
+provider: Literal["openai", "anthropic"] = "openai"
+```
+
+| `provider` | content 协议 | `Context.model` | 实际模型 |
+|---|---|---|---|
+| `openai`（默认） | OpenAI `image_url` + `data:` URL，`detail=auto` | `deepseek_vision` | `deepseek-v4-flash-vision-exp` |
+| `anthropic` | Anthropic `image` + `source.base64` | `minimax_m3` | MiniMax-M3 |
+
+注意：这里的 `anthropic` **不是** DeepSeek 的 Anthropic 兼容端点（`/anthropic`），而是「Anthropic 风格多模态 content + MiniMax-M3」。切换识图后端时，改 `_handle_vision_flow` 的 `provider` 默认值（或调用处传入）即可；纯图 Redis 挂起仍只存 `{media_type, data}`，与协议无关。
 
 ## 存储设计
 

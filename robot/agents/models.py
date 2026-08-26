@@ -1,7 +1,9 @@
 """
 Agent模型
     - deepseek_model
+    - deepseek_model_vision
     - minimax_model
+    - minimax_model_M3
 """
 
 from langchain.chat_models import init_chat_model
@@ -25,6 +27,8 @@ deepseek_model_vision = init_chat_model(
     api_key=DeepSeekModelConfig.API_KEY,
     base_url=DeepSeekModelConfig.BASE_URL_OPENAI,
     model_provider="openai",
+    extra_body={"thinking": {"type": "enabled"}},
+    reasoning_effort="low",
 )
 
 

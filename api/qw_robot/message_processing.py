@@ -24,7 +24,7 @@ from langgraph.graph.state import CompiledStateGraph
 from utils.logger_manager import LoggerManager
 from utils.redis_link import RedisManager
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 import asyncio
 
 logger = LoggerManager.get_logger(name='message_processing')
@@ -32,6 +32,8 @@ r_link = RedisManager()
 
 DEFAULT_IMAGE_PROMPT = "请描述这张图片的内容"
 DEFAULT_MULTI_IMAGE_PROMPT = "请根据这些图片回答"
+
+VisionProvider = Literal["openai", "anthropic"]
 
 
 def _parse_mixed_items(body: dict) -> tuple[str, list[dict]]:
@@ -58,23 +60,46 @@ def _parse_mixed_items(body: dict) -> tuple[str, list[dict]]:
     return "\n".join(texts).strip(), images
 
 
+def _vision_model_name(provider: VisionProvider) -> str:
+    """provider → stream_agent model_name。"""
+    return "deepseek_vision" if provider == "openai" else "minimax_m3"
+
+
 def _build_vision_user_content(
     text_prompt: str,
     image_payloads: list[dict],
+    provider: VisionProvider = "openai",
 ) -> list[dict]:
-    """构造 Anthropic 风格多模态 HumanMessage content。"""
+    """
+    构造多模态 HumanMessage content。
+    - openai: OpenAI Chat Completions 风格（DeepSeek Vision）
+    - anthropic: Anthropic Messages 风格（MiniMax-M3）
+    """
     blocks: list[dict] = [{"type": "text", "text": text_prompt}]
     for payload in image_payloads:
-        blocks.append(
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": payload["media_type"],
-                    "data": payload["data"],
-                },
-            }
-        )
+        media_type = payload["media_type"]
+        data = payload["data"]
+        if provider == "openai":
+            blocks.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{media_type};base64,{data}",
+                        "detail": "auto",
+                    },
+                }
+            )
+        else:
+            blocks.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": data,
+                    },
+                }
+            )
     return blocks
 
 
@@ -242,10 +267,12 @@ async def _handle_vision_flow(
     question_prefix: str = "[图片]",
     clear_pending_after: bool = False,
     skip_initial_placeholder: bool = False,
+    provider: VisionProvider = "openai",
 ) -> None:
     """
     多模态理解并流式文字回复。
     可传 image_refs（需下载）或已缓存的 image_payloads。
+    provider: openai → DeepSeek Vision；anthropic → MiniMax-M3。
     """
     question_for_db = f"{question_prefix} {text_prompt}"
     await session_hset(
@@ -306,7 +333,9 @@ async def _handle_vision_flow(
         )
         return
 
-    user_content = _build_vision_user_content(text_prompt, payloads)
+    user_content = _build_vision_user_content(
+        text_prompt, payloads, provider=provider
+    )
     last = ""
     try:
         async for partial in stream_agent(
@@ -316,7 +345,7 @@ async def _handle_vision_flow(
             user_id=userid,
             message_id=stream_id,
             redis_client=r_client,
-            model_name="minimax_m3",
+            model_name=_vision_model_name(provider),
             user_content=user_content,
         ):
             last = partial
