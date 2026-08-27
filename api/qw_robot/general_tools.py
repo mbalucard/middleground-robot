@@ -92,9 +92,9 @@ async def get_redis_id(
         return await r_client.hget(key, id_type)
     else:
         if id_type == 'thread_id':
-            value = {'key': key, id_type: f"t-{str(uuid.uuid4())}"}
+            value = {'key': key, id_type: f"t-{new_req_id()}"}
         else:
-            value = {'key': key, id_type: f"u-{str(uuid.uuid4())}"}
+            value = {'key': key, id_type: f"u-{new_req_id()}"}
         await r_client.hset(key, mapping=value)
         await r_client.expire(key, out_time)
         return value[id_type]

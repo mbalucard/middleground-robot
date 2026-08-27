@@ -1,21 +1,40 @@
 """
-纯图挂起队列（Redis）
+纯图挂起队列（Redis Hash）
     - append_pending_image: 追加一张，最多 5 张，TTL 10 分钟
-    - list_pending_images: 读取当前挂起列表
-    - clear_pending_images: 清空
+    - list_pending_images: 只读当前挂起列表
+    - take_pending_images: 原子取出并清空当前挂起
 """
 
 from __future__ import annotations
 
 import json
+import time
+import uuid
 from typing import Any
 
 import redis.asyncio as redis
+from redis.exceptions import ResponseError
 
 from api.qw_robot.media_handler import ImagePayload
 
 MAX_PENDING_IMAGES = 5
 PENDING_TTL_SECONDS = 600
+
+_APPEND_LUA = """
+local n = redis.call('HLEN', KEYS[1])
+if n >= tonumber(ARGV[4]) then
+  return -1
+end
+redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+return n + 1
+"""
+
+_TAKE_LUA = """
+local raw = redis.call('HGETALL', KEYS[1])
+redis.call('DEL', KEYS[1])
+return raw
+"""
 
 
 class PendingFullError(Exception):
@@ -33,35 +52,110 @@ def _key(userid: str, thread_id: str) -> str:
     return f"pending_images:{userid}:{thread_id}"
 
 
+def _is_wrongtype(exc: BaseException) -> bool:
+    return "WRONGTYPE" in str(exc)
+
+
+def _parse_payload(raw: Any) -> ImagePayload | None:
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    if not isinstance(raw, str):
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    if not data.get("media_type") or not data.get("data"):
+        return None
+    return {
+        "media_type": str(data["media_type"]),
+        "data": str(data["data"]),
+    }
+
+
+def _mapping_from_raw(raw: Any) -> dict[str, Any]:
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return {str(k): v for k, v in raw.items()}
+    mapping: dict[str, Any] = {}
+    seq = list(raw)
+    for i in range(0, len(seq) - 1, 2):
+        mapping[str(seq[i])] = seq[i + 1]
+    return mapping
+
+
+def _payloads_from_mapping(mapping: dict[str, Any]) -> list[ImagePayload]:
+    out: list[ImagePayload] = []
+    for _field, raw in sorted(mapping.items(), key=lambda kv: str(kv[0])):
+        payload = _parse_payload(raw)
+        if payload:
+            out.append(payload)
+    return out
+
+
+async def _eval_script(
+    redis_client: redis.Redis,
+    script: str,
+    key: str,
+    *args: Any,
+    retry_on_wrongtype: bool = False,
+) -> Any:
+    try:
+        return await redis_client.eval(script, 1, key, *args)
+    except ResponseError as e:
+        if not _is_wrongtype(e):
+            raise
+        await redis_client.delete(key)
+        if retry_on_wrongtype:
+            return await redis_client.eval(script, 1, key, *args)
+        return None
+
+
 async def list_pending_images(
     redis_client: redis.Redis,
     userid: str,
     thread_id: str,
 ) -> list[ImagePayload]:
-    """读取挂起图片列表；不存在或无效则返回空列表。"""
-    raw = await redis_client.get(_key(userid, thread_id))
-    if not raw:
-        return []
+    """
+    只读当前挂起图片列表，不删除。
+    Args:
+        redis_client: Redis连接
+        userid(str): 用户ID
+        thread_id(str): 会话ID
+    Returns:
+        按写入时间排序的挂起图片列表
+    """
+    key = _key(userid, thread_id)
     try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(data, list):
-        return []
-    out: list[ImagePayload] = []
-    for item in data:
-        if (
-            isinstance(item, dict)
-            and item.get("media_type")
-            and item.get("data")
-        ):
-            out.append(
-                {
-                    "media_type": str(item["media_type"]),
-                    "data": str(item["data"]),
-                }
-            )
-    return out
+        mapping = await redis_client.hgetall(key)
+    except ResponseError as e:
+        if _is_wrongtype(e):
+            await redis_client.delete(key)
+            return []
+        raise
+    return _payloads_from_mapping(_mapping_from_raw(mapping))
+
+
+async def take_pending_images(
+    redis_client: redis.Redis,
+    userid: str,
+    thread_id: str,
+) -> list[ImagePayload]:
+    """
+    原子取出当前挂起图片并删除该 Hash。
+    Args:
+        redis_client: Redis连接
+        userid(str): 用户ID
+        thread_id(str): 会话ID
+    Returns:
+        按写入时间排序的挂起图片列表
+    """
+    key = _key(userid, thread_id)
+    raw = await _eval_script(redis_client, _TAKE_LUA, key)
+    return _payloads_from_mapping(_mapping_from_raw(raw))
 
 
 async def append_pending_image(
@@ -72,33 +166,36 @@ async def append_pending_image(
 ) -> int:
     """
     追加一张挂起图并刷新 TTL。
+    Args:
+        redis_client: Redis连接
+        userid(str): 用户ID
+        thread_id(str): 会话ID
+        payload: 图片 payload（media_type + data）
     Returns:
         当前挂起张数
     Raises:
         PendingFullError: 已满 5 张
     """
-    items = await list_pending_images(redis_client, userid, thread_id)
-    if len(items) >= MAX_PENDING_IMAGES:
-        raise PendingFullError(len(items))
-    items.append(
+    key = _key(userid, thread_id)
+    field = f"{time.time_ns()}:{uuid.uuid4()}"
+    value = json.dumps(
         {
             "media_type": str(payload["media_type"]),
             "data": str(payload["data"]),
-        }
+        },
+        ensure_ascii=False,
     )
-    key = _key(userid, thread_id)
-    await redis_client.set(
+    n = await _eval_script(
+        redis_client,
+        _APPEND_LUA,
         key,
-        json.dumps(items, ensure_ascii=False),
-        ex=PENDING_TTL_SECONDS,
+        field,
+        value,
+        PENDING_TTL_SECONDS,
+        MAX_PENDING_IMAGES,
+        retry_on_wrongtype=True,
     )
-    return len(items)
-
-
-async def clear_pending_images(
-    redis_client: redis.Redis,
-    userid: str,
-    thread_id: str,
-) -> None:
-    """清空挂起队列。"""
-    await redis_client.delete(_key(userid, thread_id))
+    count = int(n)
+    if count < 0:
+        raise PendingFullError(MAX_PENDING_IMAGES)
+    return count
