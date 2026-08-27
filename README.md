@@ -47,6 +47,7 @@ middleground-robot/
 │   └── qw_robot_main.py          # 主入口：企微 WS、订阅、心跳、消息分发
 ├── api/qw_robot/
 │   ├── message_processing.py     # 消息回调、流式响应、识图流程、心跳
+│   ├── stream_agent.py           # 企微流式运行智能体（含会话/工具落库）
 │   ├── media_handler.py          # 企微图片下载与 AES 解密
 │   ├── pending_images.py         # 纯图 Redis 挂起队列
 │   ├── mes_busy.py               # 单聊消息忙锁
@@ -57,7 +58,7 @@ middleground-robot/
 ├── robot/
 │   ├── agents/
 │   │   ├── main_agent.py         # Agent 构建入口
-│   │   ├── agent_invoke.py       # 同步/流式调用、中断恢复
+│   │   ├── agent_invoke.py       # 同步调用、中断恢复
 │   │   ├── agent_backend.py      # Filesystem + Store 组合后端
 │   │   ├── model_middleware.py   # 模型选择中间件
 │   │   ├── model_context.py      # Agent 运行上下文
@@ -286,7 +287,7 @@ python -m robot.agents.main_agent
 调试流式 Agent 调用：
 
 ```bash
-python -m robot.agents.agent_invoke
+python -m api.qw_robot.stream_agent
 ```
 
 说明：这两个入口同样依赖模型配置与 PostgreSQL。

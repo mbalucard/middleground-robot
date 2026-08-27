@@ -44,7 +44,7 @@ class ImageContentError(Exception):
 
 def vision_model_name(provider: VisionProvider) -> str:
     """
-    provider 映射为 stream_agent 的 model_name
+    provider 映射为模型名称
     Args:
         provider(str): 识图协议风格, openai / anthropic
     Returns:

@@ -22,7 +22,7 @@ from api.qw_robot.mes_busy import (
     release_busy,
     try_acquire_busy,
 )
-from robot.agents.agent_invoke import stream_agent
+from api.qw_robot.stream_agent import agent_astream
 from robot.agents.message_content import (
     DEFAULT_MULTI_IMAGE_PROMPT,
     VisionProvider,
@@ -212,7 +212,7 @@ async def _run_agent_stream(
 
     last = ""
     try:
-        async for partial in stream_agent(
+        async for partial in agent_astream(
             agent=agent,
             question=question,
             thread_id=thread_id,
@@ -373,7 +373,7 @@ async def _handle_vision_flow(
     )
     last = ""
     try:
-        async for partial in stream_agent(
+        async for partial in agent_astream(
             agent=agent,
             question=question_for_db,
             thread_id=thread_id,

@@ -9,6 +9,7 @@ dependencies = [
     "concurrent-log-handler>=0.9.29",
     "deepagents>=0.6.12",
     "dotenv>=0.9.9",
+    "fastapi>=0.141.1",
     "greenlet>=3.5.4",
     "httpx>=0.28.1",
     "ipykernel>=7.3.0",

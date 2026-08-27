@@ -69,7 +69,7 @@ async def main() -> None:
                     if "errcode" in msg and cmd is None:
                         continue
 
-                    logger.info(f"msg: {msg}")  # 打印接收到的消息
+                    # logger.info(f"msg: {msg}")  # 打印接收到的消息
 
                     if cmd == "aibot_msg_callback":
                         # 图片下载+推理较慢，不阻塞收包
