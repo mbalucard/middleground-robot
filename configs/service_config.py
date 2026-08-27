@@ -34,7 +34,7 @@ class ConfigRedis:
     HOST = os.getenv("REDIS_HOST", "localhost")
     PORT = os.getenv("REDIS_PORT", 6379)
     PASSWORD = os.getenv("REDIS_PASSWORD", None)
-    DB = os.getenv("REDIS_DB", 3)
+    DB = os.getenv("REDIS_DB", 0)
     TIMEOUT = os.getenv("SESSION_TIMEOUT", 300)  # 会话过期时间
     TTL = os.getenv("REDIS_TTL", 3600)  # 会话超时时间
 

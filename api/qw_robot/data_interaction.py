@@ -53,8 +53,7 @@ async def insert_tool_call(
     tool_call_id: str,
     tool_name: str,
     tool_input: dict,
-    tool_output: str,
-):
+    tool_output: str,):
     """
     插入工具调用
     Args:
