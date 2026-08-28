@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 
-from robot.agents.message_content import strip_images_from_messages
+from robot.tools.message_content import strip_images_from_messages
 from robot.agents.models import (
     deepseek_model,
     deepseek_model_vision,

@@ -56,21 +56,22 @@ middleground-robot/
 │   ├── data_interaction.py       # 数据写入逻辑
 │   └── general_tools.py          # req_id、thread_id、send_json、WS 应答分发
 ├── robot/
-│   ├── agents/
+│   ├── agents/                   # Agent 构建、调用与模型层
 │   │   ├── main_agent.py         # Agent 构建入口
 │   │   ├── agent_invoke.py       # 同步调用、中断恢复
 │   │   ├── agent_backend.py      # Filesystem + Store 组合后端
 │   │   ├── model_middleware.py   # 模型选择中间件
 │   │   ├── model_context.py      # Agent 运行上下文
-│   │   ├── message_content.py    # 多模态 content 拼装与剥图
 │   │   └── models.py             # DeepSeek / MiniMax 模型初始化
-│   ├── tools/
+│   ├── agent_tools/              # Agent 可调用的工具（挂载到 tools 参数）
 │   │   ├── ordinary_tool.py      # 联网搜索、当前时间
 │   │   ├── sale_tools.py         # 销售数据查询
 │   │   ├── shop_info_tools.py    # 企业/门店/店铺信息查询
-│   │   ├── mcp_server_tools.py   # MCP 工具加载
-│   │   ├── memory_device.py      # Postgres checkpoint/store 资源
-│   │   └── message_tool.py       # 消息整理工具
+│   │   └── mcp_server_tools.py   # MCP 工具加载
+│   ├── tools/                    # Agent 运行用组件（非工具挂载）
+│   │   ├── message_content.py    # 多模态 content 拼装与剥图
+│   │   ├── message_tool.py       # 消息整理工具
+│   │   └── memory_device.py      # Postgres checkpoint/store 资源
 │   └── workspace/                # Agent 工作目录
 │       ├── AGENTS.md             # 工作区说明与记忆约定
 │       ├── sys_message.md        # 系统提示（持久化记忆规则）
@@ -108,6 +109,12 @@ cmd 分流
 
 ## Agent 与工具
 
+`robot/` 下按职责拆分：
+
+- `agents/`：Agent 构建、调用、模型与中间件
+- `agent_tools/`：挂载到 Agent 的可调用工具（本地工具 + MCP）
+- `tools/`：运行期辅助组件（多模态 content、消息解析、Postgres 资源等）
+
 `robot/agents/main_agent.py` 中 `build_agent()` 会挂载：
 
 - 系统提示：`robot/workspace/sys_message.md`（身份见 `me/IDENTITY.md`，名称为 `Dawn`）
@@ -128,7 +135,7 @@ cmd 分流
 
 ### 识图 provider（`openai` / `anthropic`）
 
-多模态 content 拼装与 provider → 模型映射在 `robot/agents/message_content.py`。企微侧 `_handle_vision_flow` 默认：
+多模态 content 拼装与 provider → 模型映射在 `robot/tools/message_content.py`。企微侧 `_handle_vision_flow` 默认：
 
 ```python
 provider: Literal["openai", "anthropic"] = "openai"

@@ -23,7 +23,7 @@ from api.qw_robot.mes_busy import (
     try_acquire_busy,
 )
 from api.qw_robot.stream_agent import agent_astream
-from robot.agents.message_content import (
+from robot.tools.message_content import (
     DEFAULT_MULTI_IMAGE_PROMPT,
     VisionProvider,
     build_vision_user_content,

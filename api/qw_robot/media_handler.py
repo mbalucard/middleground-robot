@@ -14,7 +14,7 @@ import httpx
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-from robot.agents.message_content import (
+from robot.tools.message_content import (
     ImageContentError,
     image_to_base64_payload,
 )

@@ -18,10 +18,10 @@ from robot.agents.models import deepseek_model
 from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
 
-from robot.tools.ordinary_tool import internet_search, get_current_date
-from robot.tools.sale_tools import get_shop_sale_data, list_shops_with_sales
-from robot.tools.shop_info_tools import get_shop_info
-from robot.tools.mcp_server_tools import QwMcp
+from robot.agent_tools.ordinary_tool import internet_search, get_current_date
+from robot.agent_tools.sale_tools import get_shop_sale_data, list_shops_with_sales
+from robot.agent_tools.shop_info_tools import get_shop_info
+from robot.agent_tools.mcp_server_tools import QwMcp
 
 _SYS_MESSAGE_PATH = Path(FilePath.ROOT_PATH) / \
     "robot" / "workspace" / "sys_message.md"
