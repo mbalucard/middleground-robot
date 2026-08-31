@@ -6,6 +6,7 @@
 """
 
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 import time
 
 
@@ -35,7 +36,19 @@ def get_current_datetime() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def get_current_datetime_with_zone(zone: str = "Asia/Shanghai") -> str:
+    """
+    获取当前日期时间, 格式为: YYYY-MM-DD HH:MM:SS
+    Args:
+        zone: 时区
+    Returns:
+        str: 当前日期时间
+    """
+    return datetime.now(ZoneInfo(zone)).isoformat()
+
+
 if __name__ == "__main__":
     print(get_current_date())
     print(timestamp())
     print(get_current_datetime())
+    print(get_current_datetime_with_zone())
