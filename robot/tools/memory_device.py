@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+
 from configs.service_config import ConfigPostgres
+
 
 @dataclass
 class PostgresResources:
