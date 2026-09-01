@@ -13,10 +13,11 @@ from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="agent_invoke")
 
+# 可选模型名称
 ModelName = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
 
 
-def run_agent(
+async def run_agent(
         agent: CompiledStateGraph,
         query: str,
         thread_id: str = "1001",
@@ -39,12 +40,16 @@ def run_agent(
     human_message = HumanMessage(content=query)
 
     config = invoke_config(thread_id, user_id=user_id)
-    result = agent.invoke(
-        {"messages": [human_message]},
-        config=config,
-        context=Context(model=model_name, api_key=api_key,
-                        thread_id=thread_id),
-        version="v2")
+    try:
+        result = await agent.ainvoke(
+            {"messages": [human_message]},
+            config=config,
+            context=Context(model=model_name, api_key=api_key,
+                            thread_id=thread_id),
+            version="v2")
+    except Exception as e:
+        logger.error(f"运行智能体失败: {e}")
+        raise e
 
     # 检查执行是否被中断
     if result.interrupts:
@@ -68,7 +73,7 @@ def run_agent(
     return result
 
 
-def interrypts_judge(
+async def interrypts_judge(
         ai_interrupts: Tuple[Any],
         agent: CompiledStateGraph,
         thread_id: str = "1001",
@@ -103,14 +108,17 @@ def interrypts_judge(
             decisions = [{"type": judge_type} for _ in action_requests]
         config = invoke_config(thread_id)
         logger.critical(f"Decisions: {decisions}")
-
-        result_decisions = agent.invoke(
-            Command(resume={"decisions": decisions}),
-            config=config,
-            context=Context(model=model_name, api_key=api_key,
-                            thread_id=thread_id),
-            version="v2",
-        )
-        return result_decisions
+        try:
+            result_decisions = await agent.ainvoke(
+                Command(resume={"decisions": decisions}),
+                config=config,
+                context=Context(model=model_name, api_key=api_key,
+                                thread_id=thread_id),
+                version="v2",
+            )
+            return result_decisions
+        except Exception as e:
+            logger.error(f"人工判断是否继续执行失败: {e}")
+            raise e
     else:
         return None

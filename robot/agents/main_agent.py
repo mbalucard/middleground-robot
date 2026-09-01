@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     async def main():
         async with postgres_resources() as pg:
-            agent = build_agent(checkpointer=pg.checkpointer, store=pg.store)
-            result = run_agent(agent, "现在几点了？")
+            agent = await build_agent(checkpointer=pg.checkpointer, store=pg.store)
+            result = await run_agent(agent, "现在几点了？")
             print(parse_messages(result.value["messages"]))
     asyncio.run(main())

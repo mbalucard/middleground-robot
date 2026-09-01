@@ -38,6 +38,7 @@ async def agent_astream(
         model_name: 模型名称 deepseek / minimax / minimax_m3 / deepseek_vision
         api_key: 通行密匙
         message_id: 消息ID
+        redis_client: redis客户端
         user_content: 优先使用的用户消息内容（str 或多模态 content 列表）
     """
     mes_list = []
