@@ -1,5 +1,7 @@
 """
 Agent交互路由
+    - run_agent_invoke: 运行智能体请求
+    - run_agent_stream: 流式运行智能体请求
 """
 import json
 from fastapi import APIRouter, HTTPException, Request, Header
@@ -23,10 +25,10 @@ async def agent_interactive():
 
 @router.post("/run_agent/invoke")
 async def run_agent_invoke(
-    request: RunAgentRequest, 
+    request: RunAgentRequest,
     app_request: Request,
     authorization: Optional[str] = Header(None),
-    ):
+):
     """
     运行智能体请求
     """
@@ -71,15 +73,11 @@ async def run_agent_invoke(
     return agent_response
 
 
-
-
-
 @router.post("/run_agent/stream")
 async def run_agent_stream(
-    request: RunAgentRequest, 
-    app_request: Request,
-    authorization: Optional[str] = Header(None),
-):
+        request: RunAgentRequest,
+        app_request: Request,
+        authorization: Optional[str] = Header(None),):
     """
     流式运行智能体请求
     """
@@ -148,4 +146,3 @@ async def run_agent_stream(
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
-

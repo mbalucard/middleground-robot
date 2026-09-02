@@ -1,5 +1,8 @@
 """
 Session管理路由
+    - read_long_term_info: 读取用户所有长期记忆信息详情
+    - delete_long_term_info: 删除用户指定长期记忆信息
+    - write_long_term_info: 写入用户长期记忆信息
 """
 from fastapi import APIRouter, HTTPException, Request
 from utils.logger_manager import LoggerManager

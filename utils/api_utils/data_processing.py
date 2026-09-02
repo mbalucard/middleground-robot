@@ -2,11 +2,12 @@
 数据处理工具
 """
 from typing import Union
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
 from langgraph.types import Interrupt
 from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="data_processing")
+
 
 def format_long_term_info_key(content: str) -> str:
     """
@@ -15,10 +16,13 @@ def format_long_term_info_key(content: str) -> str:
     return f"/{content.replace(' ', '_')}.md"
 
 
-
-def agent_message_to_dict(message:Union[AIMessage, ToolMessage, Interrupt]) -> dict:
+def agent_message_to_dict(message: Union[AIMessage, ToolMessage, Interrupt, HumanMessage]) -> dict:
     """
     将Agent消息转换为字典
+    Args:
+        message: Agent消息
+    Returns:
+        dict: 转换后的字典
     """
     if isinstance(message, AIMessage):
         data_dict = {
@@ -43,19 +47,14 @@ def agent_message_to_dict(message:Union[AIMessage, ToolMessage, Interrupt]) -> d
             "content": message.value,
             "id": message.id,
         }
-
-    else:
+    elif isinstance(message, HumanMessage):
         data_dict = {
-            "message": "未知消息类型,无法转换为字典",
+            "content": message.content,
+            "id": message.id,
+            "additional_kwargs": message.additional_kwargs or {},
+            "response_metadata": message.response_metadata or {},
         }
-        logger.error(f"未知消息类型: {type(message)}")
-        logger.error(f"消息内容: {message}")
-
-
     return data_dict
-
-
-
 
 
 if __name__ == "__main__":
