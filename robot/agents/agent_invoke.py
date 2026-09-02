@@ -38,14 +38,13 @@ async def run_agent(
         智能体响应
     """
     human_message = HumanMessage(content=query)
-
     config = invoke_config(thread_id, user_id=user_id)
+    context = Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id)
     try:
         result = await agent.ainvoke(
             {"messages": [human_message]},
             config=config,
-            context=Context(model=model_name, api_key=api_key,
-                            thread_id=thread_id),
+            context=context,
             version="v2")
     except Exception as e:
         logger.error(f"运行智能体失败: {e}")
@@ -76,6 +75,7 @@ async def run_agent(
 async def interrypts_judge(
         ai_interrupts: Tuple[Any],
         agent: CompiledStateGraph,
+        user_id: str = "1001",
         thread_id: str = "1001",
         judge_type: Optional[Literal["approve", "reject"]] = None,
         judge_list: Optional[List[Dict[str, Any]]] = None,
@@ -106,14 +106,14 @@ async def interrypts_judge(
             decisions = judge_list
         else:
             decisions = [{"type": judge_type} for _ in action_requests]
-        config = invoke_config(thread_id)
+        config = invoke_config(thread_id, user_id=user_id)
+        context = Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id)
         logger.critical(f"Decisions: {decisions}")
         try:
             result_decisions = await agent.ainvoke(
                 Command(resume={"decisions": decisions}),
                 config=config,
-                context=Context(model=model_name, api_key=api_key,
-                                thread_id=thread_id),
+                context=context,
                 version="v2",
             )
             return result_decisions
@@ -122,3 +122,48 @@ async def interrypts_judge(
             raise e
     else:
         return None
+
+
+async def run_agent_astream(
+    agent: CompiledStateGraph,
+    query: str,
+    thread_id: str = "1001",
+    user_id: str = "1001",
+    model_name: ModelName = "deepseek",
+    api_key: Optional[str] = None,):
+    """
+    运行智能体
+    Args:
+        agent: 智能体
+        query: 查询字符串
+        thread_id: 线程ID
+        user_id: 用户ID
+        model_name: 模型名称
+        api_key: 通行密匙
+    Returns:
+        Optional[Result]: 决策结果,如果中断信息为空,则返回None
+    """
+    human_message = HumanMessage(content=query)
+    config = invoke_config(thread_id, user_id=user_id)
+    context = Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id)
+    try:
+        async for chunk in agent.astream(
+            {"messages": [human_message]},
+            config=config,
+            context=context,
+            stream_mode="updates",
+            subgraphs=True,
+            version='v2',
+        ):
+            data = chunk['data'] or {}
+            if data.get("model"):
+                yield data
+
+            if data.get('tools'):
+                yield data
+
+            if data.get('__interrupt__'):
+                yield data
+    except Exception as e:
+        logger.error(f"流式运行智能体失败: {e}")
+        raise e

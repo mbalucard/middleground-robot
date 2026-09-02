@@ -46,11 +46,11 @@ async def agent_astream(
     config = invoke_config(thread_id=thread_id, user_id=user_id)
     content = user_content if user_content is not None else question
     human_message = HumanMessage(content=content)
+    context = Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id)
     async for chunk in agent.astream(
         {"messages": [human_message]},
         config=config,
-        context=Context(model=model_name, api_key=api_key,
-                        thread_id=thread_id, user_id=user_id),
+        context=context,
         stream_mode="updates",  # 流式更新模式
         subgraphs=True,  # 是否显示工具或子代理反馈信息
         version='v2',
