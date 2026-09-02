@@ -131,7 +131,6 @@ async def user_session_thread_details(
         "data_type": "thread_details",
         "message": res_message,
     }
-    logger.info(session_response)
     return session_response
 
 @router.post("/user_session/thread_interrupt")
