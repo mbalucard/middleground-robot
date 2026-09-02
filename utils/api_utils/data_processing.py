@@ -26,6 +26,7 @@ def agent_message_to_dict(message: Union[AIMessage, ToolMessage, Interrupt, Huma
     """
     if isinstance(message, AIMessage):
         data_dict = {
+            "type": "AIMessage",
             "content": message.content,
             "additional_kwargs": message.additional_kwargs,
             "response_metadata": message.response_metadata,
@@ -36,6 +37,7 @@ def agent_message_to_dict(message: Union[AIMessage, ToolMessage, Interrupt, Huma
         }
     elif isinstance(message, ToolMessage):
         data_dict = {
+            "type": "ToolMessage",
             "content": message.content,
             "name": message.name,
             "id": message.id,
@@ -44,16 +46,21 @@ def agent_message_to_dict(message: Union[AIMessage, ToolMessage, Interrupt, Huma
 
     elif isinstance(message, Interrupt):
         data_dict = {
+            "type": "Interrupt",
             "content": message.value,
             "id": message.id,
         }
     elif isinstance(message, HumanMessage):
         data_dict = {
+            "type": "HumanMessage",
             "content": message.content,
             "id": message.id,
             "additional_kwargs": message.additional_kwargs or {},
             "response_metadata": message.response_metadata or {},
         }
+    else:
+        data_dict = {}
+        logger.warning(f"未知消息类型: {type(message)}")
     return data_dict
 
 

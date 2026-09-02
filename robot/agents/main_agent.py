@@ -80,6 +80,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
         tools=tools,
         middleware=middleware,
         context_schema=Context,
+        interrupt_on={"internet_search":True}  
     )
     return agent
 

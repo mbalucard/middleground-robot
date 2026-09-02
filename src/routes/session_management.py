@@ -6,10 +6,10 @@ Session管理路由
 """
 from fastapi import APIRouter, HTTPException, Request
 from utils.logger_manager import LoggerManager
-from utils.api_utils.data_processing import format_long_term_info_key
+from utils.api_utils.data_processing import format_long_term_info_key, agent_message_to_dict
 from utils.api_utils.request_models import ReadLongTermInfoRequest, LongTermInfoDetailRequest, WriteLongTermInfoRequest
+from utils.api_utils.memory_service import get_memory_service, get_short_term_memory_service
 
-from utils.api_utils.memory_service import get_memory_service
 
 logger = LoggerManager.get_logger(name='session_management')
 
@@ -84,3 +84,81 @@ async def write_long_term_info(
     memory_service = get_memory_service(state)
     write_result = await memory_service.write_long_term_info(user_id, key, content)
     return write_result
+
+
+@router.post("/delete_session/thread")
+async def delete_session_thread(
+    thread_id: str,
+    app_request: Request):
+    """
+    删除会话线程
+    """
+    state = app_request.app.state
+    checkpointer = state.checkpointer
+    await checkpointer.adelete_thread(thread_id)
+    return {"success": True, "message": "成功删除会话"}
+
+
+@router.post("/user_session/thread_details")
+async def user_session_thread_details(
+    user_id: str,
+    thread_id: str,
+    app_request: Request):
+    """
+    获取用户会话详情
+    """
+    state = app_request.app.state
+    agent_args = {
+        "user_id": user_id,
+        "thread_id": thread_id,
+    }
+    memory_service = await get_short_term_memory_service(
+        state=state,
+        thread_id=thread_id,
+        user_id=user_id
+    )
+    messages = await memory_service.get_context(context_type="messages")
+    message_list = []
+    for item in messages:
+        data_dict = agent_message_to_dict(item)
+        message_list.append(data_dict)
+    res_message = "成功获取用户会话详情" if message_list else "未找到用户会话详情"
+    session_response = {
+        "success": True,
+        "agent_args": agent_args,
+        "total": len(message_list),
+        "data": message_list,
+        "data_type": "thread_details",
+        "message": res_message,
+    }
+    logger.info(session_response)
+    return session_response
+
+@router.post("/user_session/thread_interrupt")
+async def user_session_thread_interrupt(
+    user_id: str,
+    thread_id: str,
+    app_request: Request):
+    """
+    获取会话中断信息
+    """
+    state = app_request.app.state
+    memory_service = await get_short_term_memory_service(
+        state=state,
+        thread_id=thread_id,
+        user_id=user_id
+    )
+    interrupt_info = await memory_service.get_interrupt_info()
+    agent_args = {
+        "user_id": user_id,
+        "thread_id": thread_id,
+    }
+    res_message = "成功获取会话中断信息" if interrupt_info else "未找到会话中断信息"
+    interrupt_response = {
+        "success": True,
+        "agent_args": agent_args,
+        "data": interrupt_info,
+        "data_type": "interrupt",
+        "message": res_message,
+    }
+    return interrupt_response

@@ -110,19 +110,19 @@ async def run_agent_stream(
         ):
             order_num += 1
             if chunk.get("model"):
-                data_type = "agent_message"
+                data_type = "agent"
                 message = "智能体消息"
                 data = agent_message_to_dict(chunk['model']['messages'][-1])
             elif chunk.get("tools"):
-                data_type = "tool_message"
+                data_type = "tool"
                 message = "工具消息"
                 data = agent_message_to_dict(chunk['tools']['messages'][-1])
             elif chunk.get("__interrupt__"):
-                data_type = "interrupt_message"
+                data_type = "interrupt"
                 message = "中断消息"
                 data = agent_message_to_dict(chunk['__interrupt__'][0])
             else:
-                data_type = "unknown_message"
+                data_type = "unknown"
                 message = "未知消息"
                 data = None
             agent_response = {
@@ -140,7 +140,7 @@ async def run_agent_stream(
             "agent_args": agent_args,
             "order": {"num": order_num + 1, "is_end": True},
             "data": None,
-            "data_type": "stream_end",
+            "data_type": "end",
             "message": "流式输出结束",
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"

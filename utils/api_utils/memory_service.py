@@ -4,16 +4,22 @@
 
 
 from langgraph.store.postgres import AsyncPostgresStore
+from langgraph.types import StateSnapshot
 from fastapi import HTTPException
+from typing import Literal
+
 from utils.logger_manager import LoggerManager
 from utils.date_time import get_current_datetime_with_zone
+from utils.api_utils.data_processing import agent_message_to_dict
 
+
+from robot.agents.model_context import invoke_config
 
 logger = LoggerManager.get_logger(name='memory_service')
 
 
 class MemoryService:
-    """记忆服务"""
+    """长期记忆服务"""
 
     def __init__(self, store: AsyncPostgresStore):
         self.store = store
@@ -89,7 +95,6 @@ class MemoryService:
             raise HTTPException(
                 status_code=500, detail=f"获取用户{user_id}的长期记忆失败: {e}")
 
-
     async def write_long_term_info(self, user_id: str, key: str, content: str):
         """
         写入长期记忆信息
@@ -126,15 +131,97 @@ class MemoryService:
 
 def get_memory_service(state):
     """
-    获取记忆服务
+    获取长期记忆服务
     Args:
         state: 应用程序状态
     Returns:
-        MemoryService: 记忆服务
+        MemoryService: 长期记忆服务
     """
     try:
         store = state.store
         return MemoryService(store)
     except Exception as e:
-        logger.error(f"获取记忆服务失败: {e}")
-        raise RuntimeError(f"获取记忆服务失败: {str(e)}")
+        logger.error(f"获取长期记忆服务失败: {e}")
+        raise RuntimeError(f"获取长期记忆服务失败: {str(e)}")
+
+
+class ShortTermMemoryService:
+    """短期记忆服务"""
+
+    def __init__(self, agent_state: StateSnapshot):
+        self.state = agent_state
+
+    async def get_context(
+            self,
+            context_type: Literal["messages", "memory_contents", "skills_metadata"] = "messages"):
+        """
+        获取上下文
+        Args:
+            context_type: 上下文类型
+                - messages: 消息列表
+                - memory_contents: 记忆内容
+                - skills_metadata: 技能元数据
+        Returns:
+            list | dict: 上下文列表，记忆内容，技能元数据
+        """
+        try:
+            if context_type == "messages":
+                return self.state.values.get("messages", [])
+            elif context_type == "memory_contents":
+                return self.state.values.get("memory_contents", {})
+            elif context_type == "skills_metadata":
+                return self.state.values.get("skills_metadata", [])
+
+        except Exception as e:
+            logger.error(f"获取上下文失败: {e}")
+            raise HTTPException(status_code=500, detail=f"获取上下文失败: {e}")
+
+    async def get_interrupt_info(self):
+        """
+        获取中断信息  
+        Returns:
+            dict: 中断信息
+        """
+        try:
+            if self.state.interrupts:
+                interrupt_info = self.state.interrupts[0]
+            else:
+                interrupt_info = None
+            return agent_message_to_dict(interrupt_info)
+        except Exception as e:
+            logger.error(f"获取中断信息失败: {e}")
+            raise HTTPException(status_code=500, detail=f"获取中断信息失败: {e}")
+
+    async def get_metadata_info(self):
+        """
+        获取元数据信息
+        Returns:
+            dict: 元数据信息
+        """
+        try:
+            return self.state.metadata
+        except Exception as e:
+            logger.error(f"获取元数据信息失败: {e}")
+            raise HTTPException(status_code=500, detail=f"获取元数据信息失败: {e}")
+
+    async def get_config_info(self):
+        """
+        获取配置信息
+        Returns:
+            dict: 配置信息
+        """
+        try:
+            return self.state.config
+        except Exception as e:
+            logger.error(f"获取配置信息失败: {e}")
+            raise HTTPException(status_code=500, detail=f"获取配置信息失败: {e}")
+
+
+async def get_short_term_memory_service(state, thread_id: str, user_id: str):
+    try:
+        config = invoke_config(thread_id=thread_id, user_id=user_id)
+        state = await state.agent.aget_state(config)
+        return ShortTermMemoryService(state)
+    except Exception as e:
+        logger.error(f"获取短期记忆服务失败: {e}")
+        raise RuntimeError(f"获取短期记忆服务失败: {str(e)}")
