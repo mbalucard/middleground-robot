@@ -40,7 +40,7 @@ async def run_agent_invoke(
     user_id = request.user_id
     query = request.query
     thread_id = request.thread_id
-    model_name = request.model_name
+    model_name = request.model_label
     is_message_all = request.is_message_all
     # 获取应用状态
     state = app_request.app.state
@@ -89,7 +89,7 @@ async def run_agent_stream(
     user_id = request.user_id
     query = request.query
     thread_id = request.thread_id
-    model_name = request.model_name
+    model_name = request.model_label
     # 获取应用状态
     state = app_request.app.state
     agent_args = {

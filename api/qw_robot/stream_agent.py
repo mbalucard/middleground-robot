@@ -14,7 +14,7 @@ from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="agent_astream")
 
-ModelName = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
+ModelLabel = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
 UserContent = Union[str, List[Dict[str, Any]]]
 
 
@@ -23,7 +23,7 @@ async def agent_astream(
     question: str,
     thread_id: str,
     user_id: str,
-    model_name: ModelName = "deepseek",
+    model_name: ModelLabel = "deepseek",
     api_key: Optional[str] = None,
     message_id: Optional[str] = None,
     redis_client: Optional[redis.Redis] = None,

@@ -4,7 +4,7 @@
 
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
-from robot.agents.agent_invoke import ModelName
+from robot.agents.agent_invoke import ModelLabel
 
 
 class ReadLongTermInfoRequest(BaseModel):
@@ -38,7 +38,7 @@ class RunAgentRequest(BaseModel):
     user_id: str = Field(..., description="用户ID")
     query: str = Field(..., description="查询字符串")
     thread_id: str = Field(..., description="线程ID")
-    model_name: ModelName = Field(default="deepseek", description="模型名称")
+    model_label: ModelLabel = Field(default="deepseek", description="模型标签")
     is_message_all: bool = Field(default=False, description="是否返回所有消息")
 
 

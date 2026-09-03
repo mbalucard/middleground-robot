@@ -14,7 +14,7 @@ from utils.logger_manager import LoggerManager
 logger = LoggerManager.get_logger(name="agent_invoke")
 
 # 可选模型名称
-ModelName = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
+ModelLabel = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
 
 
 async def run_agent(
@@ -22,7 +22,7 @@ async def run_agent(
         query: str,
         thread_id: str = "1001",
         user_id: str = "1001",
-        model_name: ModelName = "deepseek",
+        model_name: ModelLabel = "deepseek",
         api_key: Optional[str] = None,):
     """
     运行智能体
@@ -129,7 +129,7 @@ async def run_agent_astream(
     query: str,
     thread_id: str = "1001",
     user_id: str = "1001",
-    model_name: ModelName = "deepseek",
+    model_name: ModelLabel = "deepseek",
     api_key: Optional[str] = None,):
     """
     运行智能体
@@ -138,7 +138,7 @@ async def run_agent_astream(
         query: 查询字符串
         thread_id: 线程ID
         user_id: 用户ID
-        model_name: 模型名称
+        model_name: 模型标签
         api_key: 通行密匙
     Returns:
         Optional[Result]: 决策结果,如果中断信息为空,则返回None

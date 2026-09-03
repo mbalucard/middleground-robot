@@ -3,17 +3,23 @@ Session管理路由
     - read_long_term_info: 读取用户所有长期记忆信息详情
     - delete_long_term_info: 删除用户指定长期记忆信息
     - write_long_term_info: 写入用户长期记忆信息
+    - delete_session_thread: 删除会话线程
+    - create_session_thread: 创建会话线程
+    - user_session_thread_details: 获取用户会话详情
+    - user_session_thread_interrupt: 获取会话中断信息
 """
 from fastapi import APIRouter, HTTPException, Request
 from utils.logger_manager import LoggerManager
 from utils.api_utils.data_processing import format_long_term_info_key, agent_message_to_dict
 from utils.api_utils.request_models import ReadLongTermInfoRequest, LongTermInfoDetailRequest, WriteLongTermInfoRequest
 from utils.api_utils.memory_service import get_memory_service, get_short_term_memory_service
+from robot.tools.general_tool import new_thread_id
 
 
 logger = LoggerManager.get_logger(name='session_management')
 
 router = APIRouter(prefix='/session', tags=['Session'])
+
 
 @router.get("/")
 async def session_management():
@@ -23,10 +29,10 @@ async def session_management():
     return {"message": "这里是Session管理路由"}
 
 
-@router.post("/read_long_term/info")
+@router.post("/long_term_info/read")
 async def read_long_term_info(
-    request: ReadLongTermInfoRequest,
-    app_request: Request):
+        request: ReadLongTermInfoRequest,
+        app_request: Request):
     """
     读取用户所有长期记忆信息详情
     """
@@ -55,10 +61,10 @@ async def read_long_term_info(
     return memories_response
 
 
-@router.post("/delete_long_term/info")
+@router.post("/long_term_info/delete")
 async def delete_long_term_info(
-    request: LongTermInfoDetailRequest,
-    app_request: Request):
+        request: LongTermInfoDetailRequest,
+        app_request: Request):
     """
     删除用户指定长期记忆信息
     """
@@ -68,12 +74,12 @@ async def delete_long_term_info(
     memory_service = get_memory_service(state)
     delete_result = await memory_service.delete_long_term_info(user_id, key)
     return delete_result
-    
 
-@router.post("/write_long_term/info")
+
+@router.post("/long_term_info/write")
 async def write_long_term_info(
-    request: WriteLongTermInfoRequest,
-    app_request: Request):
+        request: WriteLongTermInfoRequest,
+        app_request: Request):
     """
     写入用户长期记忆信息
     """
@@ -86,10 +92,10 @@ async def write_long_term_info(
     return write_result
 
 
-@router.post("/delete_session/thread")
+@router.post("/seesion_thread/delete")
 async def delete_session_thread(
-    thread_id: str,
-    app_request: Request):
+        thread_id: str,
+        app_request: Request):
     """
     删除会话线程
     """
@@ -99,11 +105,27 @@ async def delete_session_thread(
     return {"success": True, "message": "成功删除会话"}
 
 
-@router.post("/user_session/thread_details")
+@router.post("/session_thread/create")
+async def create_session_thread(
+        user_id: str,
+        app_request: Request):
+    """
+    创建会话线程
+    """
+    thread_id = new_thread_id()
+    response = {
+        "success": True,
+        "data": {"user_id": user_id, "thread_id": thread_id},
+        "message": "成功创建会话线程",
+    }
+    return response
+
+
+@router.post("/user_session_thread/details")
 async def user_session_thread_details(
-    user_id: str,
-    thread_id: str,
-    app_request: Request):
+        user_id: str,
+        thread_id: str,
+        app_request: Request):
     """
     获取用户会话详情
     """
@@ -133,11 +155,12 @@ async def user_session_thread_details(
     }
     return session_response
 
-@router.post("/user_session/thread_interrupt")
+
+@router.post("/user_session_thread/interrupt")
 async def user_session_thread_interrupt(
-    user_id: str,
-    thread_id: str,
-    app_request: Request):
+        user_id: str,
+        thread_id: str,
+        app_request: Request):
     """
     获取会话中断信息
     """
