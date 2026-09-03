@@ -107,6 +107,7 @@ async def run_agent_stream(
             user_id=user_id,
             model_name=model_name,
             api_key=api_key,
+            session_redis=state.session_redis,
         ):
             order_num += 1
             if chunk.get("model"):

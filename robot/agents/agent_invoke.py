@@ -5,11 +5,14 @@
 """
 from typing import Optional, Tuple, Any, Literal, Dict, List
 from langchain_core.messages import HumanMessage
-from robot.agents.model_context import Context, invoke_config
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+from robot.tools.session_redis import SessionRedis
+from robot.tools.interrupt_handling import handle_interrupt_info
+from robot.agents.model_context import Context, invoke_config
 from utils.logger_manager import LoggerManager
+from utils.date_time import timestamp
 
 logger = LoggerManager.get_logger(name="agent_invoke")
 
@@ -124,13 +127,16 @@ async def interrypts_judge(
         return None
 
 
+
 async def run_agent_astream(
     agent: CompiledStateGraph,
     query: str,
     thread_id: str = "1001",
     user_id: str = "1001",
     model_name: ModelLabel = "deepseek",
-    api_key: Optional[str] = None,):
+    api_key: Optional[str] = None,
+    session_redis: Optional[SessionRedis] = None,
+    ):
     """
     运行智能体
     Args:
@@ -163,6 +169,20 @@ async def run_agent_astream(
                 yield data
 
             if data.get('__interrupt__'):
+                if session_redis:
+                    interrupt_data = data['__interrupt__'][0]
+                    interrupt_list = handle_interrupt_info(interrupt_data)
+                    interrupt_info = {
+                        "query": query,
+                        "user_id": user_id,
+                        "thread_id": thread_id,
+                        "interrupt_list": interrupt_list,
+                        "model_label": model_name,
+                        "api_key": api_key,
+                        "_t": timestamp(),
+                        "type": "interrupt"
+                    }
+                    await session_redis.set_session(user_id=user_id, thread_id=thread_id, data=interrupt_info)
                 yield data
     except Exception as e:
         logger.error(f"流式运行智能体失败: {e}")

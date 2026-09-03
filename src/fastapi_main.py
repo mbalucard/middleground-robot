@@ -7,6 +7,7 @@ import uvicorn
 
 from robot.agents.main_agent import build_agent
 from robot.tools.memory_device import postgres_resources
+from robot.tools.session_redis import SessionRedis
 from utils.redis_link import RedisManager
 
 from src.routes.agent_interactive import router as agent_interactive_router
@@ -21,12 +22,11 @@ async def lifespan(app: FastAPI):
     """
     FastAPI 生命周期管理
     """
-    redis_manager = None
+    session_redis = None
     try:
-        redis_manager = RedisManager()
-        redis_client = await redis_manager.get_client()
-        app.state.redis_client = redis_client
-        logger.info("FastAPI Redis 初始化完成")
+        session_redis = SessionRedis()
+        app.state.session_redis = session_redis
+        logger.info("FastAPI Session Redis 初始化完成")
 
         async with postgres_resources() as pg:
             app.state.store = pg.store
@@ -42,8 +42,8 @@ async def lifespan(app: FastAPI):
         logger.error(f"FastAPI 生命周期管理错误: {e}")
         raise RuntimeError(f"服务初始化失败: {str(e)}") from e
     finally:
-        if redis_manager is not None:
-            await redis_manager.close()
+        if session_redis is not None:
+            await session_redis.close()
         logger.info("关闭服务并完成资源清理")
 
 
