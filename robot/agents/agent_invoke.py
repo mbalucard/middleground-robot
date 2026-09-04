@@ -2,6 +2,8 @@
 运行智能体
     - run_agent: 运行智能体
     - interrypts_judge: AI中断后,人工判断是否继续执行
+    - run_agent_astream: 流式运行智能体
+    - interrypts_judge_astream: 中断恢复流式运行智能体
 """
 from typing import Optional, Tuple, Any, Literal, Dict, List
 from langchain_core.messages import HumanMessage
@@ -27,7 +29,8 @@ async def run_agent(
         thread_id: str = "1001",
         user_id: str = "1001",
         model_name: ModelLabel = "deepseek",
-        api_key: Optional[str] = None,):
+        api_key: Optional[str] = None,
+        session_redis: Optional[SessionRedis] = None,):
     """
     运行智能体
     Args:
@@ -38,6 +41,7 @@ async def run_agent(
         model_name(str): 模型名称, default="deepseek"
             - deepseek / minimax / minimax_m3 / deepseek_vision
         api_key(str): 通行密匙 default=None
+        session_redis(Optional[SessionRedis]): 会话Redis default=None
     Returns:
         智能体响应
     """
@@ -57,78 +61,106 @@ async def run_agent(
 
     # 检查执行是否被中断
     if result.interrupts:
-        # 提取中断信息
-        interrupt_value = result.interrupts[0].value
-        action_requests = interrupt_value["action_requests"]
-        review_configs = interrupt_value["review_configs"]
-        # 创建一个从工具名称到审查配置的查找映射
-        config_map = {cfg["action_name"]: cfg for cfg in review_configs}
-        # 向用户展示待处理操作
-        print("="*20+"工具中断信息"+"="*20)
-        for action in action_requests:
-            review_config = config_map[action["name"]]
-            logger.info(
-                f"Tool Name: {action['name']} -- Args: {action['args']} -- Allowed Decisions: {review_config['allowed_decisions']}")
-            print(f"Tool Name: {action['name']}")
-            print(f"参数: {action['args']}")
-            print(f"允许的决策: {review_config['allowed_decisions']}")
-            print("-"*50)
+        if session_redis:
+            interrupt_data = result.interrupts[0]
+            interrupt_list = handle_interrupt_info(interrupt_data)
+            interrupt_info = {
+                "query": query,
+                "user_id": user_id,
+                "thread_id": thread_id,
+                "interrupt_list": interrupt_list,
+                "model_label": model_name,
+                "api_key": api_key,
+                "_t": timestamp(),
+                "type": "interrupt"
+            }
+            await session_redis.set_session(user_id=user_id, thread_id=thread_id, data=interrupt_info)
 
     return result
 
 
 async def interrypts_judge(
-        ai_interrupts: Tuple[Any],
-        agent: CompiledStateGraph,
-        user_id: str = "1001",
-        thread_id: str = "1001",
-        judge_type: Optional[AllowedDecisions] = None,
-        judge_list: Optional[List[Dict[str, Any]]] = None,
-        model_name: Optional[str] = None,
-        api_key: Optional[str] = None,):
+    agent: CompiledStateGraph,
+    user_id: str,
+    thread_id: str,
+    session_redis: SessionRedis,
+    decides: List[AllowedDecisions],
+    is_all_decides: bool = False,):
     """
     AI中断后,人工判断是否继续执行
     Args:
-        ai_interrupts(Tuple[Any]): 中断信息
-        agent(CompiledStateGraph): 智能体
-        config(Dict[str, Any]): AI调用配置,必须与中断前AI调用配置相同
-        judge_type(Optional[Literal["approve", "reject"]]): 决策类型 default=None
-            - approve: 继续执行
-            - reject: 拒绝执行
-        judge_list(Optional[List(Dict[str, Any])]): 决策列表 default=None
-            - judge_list = [{"type": "approve"}, {"type": "reject"}]
-            - 当judge_list 不为空 judge_type 无效
-            - 当参数为“edit”时, edited_action 参考中断信息中action_requests的name和args
-        model_name(Optional[str]): 模型名称 default=None
-        api_key(Optional[str]): 通行密匙 default=None
+        agent: 智能体
+        user_id: 用户ID
+        thread_id: 线程ID
+        session_redis: 会话Redis
+        decides: 决策列表
+        is_all_decides: 是否全部决策一致
     Returns:
         Optional[Result]: 决策结果,如果中断信息为空,则返回None
     """
-    if ai_interrupts:
-        interrupt_value = ai_interrupts[0].value
-        action_requests = interrupt_value["action_requests"]
-        if judge_list:
-            decisions = judge_list
-        else:
-            decisions = [{"type": judge_type} for _ in action_requests]
-        config = invoke_config(thread_id, user_id=user_id)
-        context = Context(model=model_name, api_key=api_key,
-                          thread_id=thread_id, user_id=user_id)
-        logger.critical(f"Decisions: {decisions}")
-        try:
-            result_decisions = await agent.ainvoke(
-                Command(resume={"decisions": decisions}),
-                config=config,
-                context=context,
-                version="v2",
-            )
-            return result_decisions
-        except Exception as e:
-            logger.error(f"人工判断是否继续执行失败: {e}")
-            raise e
-    else:
+    # 获取中断信息
+    interrupt_info = await session_redis.get_session(user_id=user_id, thread_id=thread_id)
+    if not interrupt_info:
+        logger.warning(f"用户当前对话不存在中断信息: user_id={user_id}, thread_id={thread_id}")
         return None
+    # 构建决策列表
+    decisions = []
+    if not is_all_decides:
+        if len(decides) != len(interrupt_info.get('interrupt_list', [])):
+            logger.warning(f"决策列表长度与中断信息长度不一致: decides={len(decides)}, interrupt_list={len(interrupt_info.get('interrupt_list', []))}")
+            return None
+        for i in range(len(decides)):
+            decide = {"type": decides[i]}
+            decisions.append(decide)
+    else:
+        if len(decides) != 1:
+            logger.warning(f"is_all_decides为True时,决策列表长度必须为1,当前长度为{len(decides)}")
+            return None
+        if decides[0] not in ['approve', 'reject']:
+            logger.warning(f"is_all_decides为True时,决策列表仅支持'approve'或'reject',当前元素为{decides[0]}")
+            return None
+        for i in range(len(interrupt_info.get('interrupt_list', []))):
+            decide = {"type": decides[0]}
+            decisions.append(decide)
+    # 构建配置
 
+    config = invoke_config(
+        thread_id=interrupt_info.get('thread_id', ''),
+        user_id=interrupt_info.get('user_id', '')
+    )
+    context = Context(
+        model=interrupt_info.get('model_label', 'deepseek'),
+        api_key=interrupt_info.get('api_key', '123'),
+        thread_id=interrupt_info.get('thread_id'),
+        user_id=interrupt_info.get('user_id')
+    )
+    await session_redis.delete_session(user_id=user_id, thread_id=thread_id)
+    # 运行智能体
+    try:
+        result = await agent.ainvoke(
+            Command(resume={"decisions": decisions}),
+            config=config,
+            context=context,
+            version="v2")
+        # 检查是否中断
+        if result.interrupts:
+            interrupt_data = result.interrupts[0]
+            interrupt_list = handle_interrupt_info(interrupt_data)
+            interrupt_info = {
+                "query": interrupt_info.get('query', ''),
+                "user_id": user_id,
+                "thread_id": thread_id,
+                "interrupt_list": interrupt_list,
+                "model_label": interrupt_info.get('model_label', 'deepseek'),
+                "api_key": interrupt_info.get('api_key', '123'),
+                "_t": timestamp(),
+                "type": "interrupt"
+            }
+            await session_redis.set_session(user_id=user_id, thread_id=thread_id, data=interrupt_info)
+    except Exception as e:
+        logger.error(f"中断恢复运行失败: {e}")
+        raise e
+    return result
 
 async def run_agent_astream(
     agent: CompiledStateGraph,
@@ -137,10 +169,9 @@ async def run_agent_astream(
     user_id: str = "1001",
     model_name: ModelLabel = "deepseek",
     api_key: Optional[str] = None,
-    session_redis: Optional[SessionRedis] = None,
-):
+    session_redis: Optional[SessionRedis] = None,):
     """
-    运行智能体
+    流式运行智能体
     Args:
         agent: 智能体
         query: 查询字符串
@@ -148,6 +179,7 @@ async def run_agent_astream(
         user_id: 用户ID
         model_name: 模型标签
         api_key: 通行密匙
+        session_redis: 会话Redis
     Returns:
         Optional[Result]: 决策结果,如果中断信息为空,则返回None
     """

@@ -50,8 +50,8 @@ class RunAgentInterruptsJudgeRequest(BaseModel):
     user_id: str = Field(..., description="用户ID")
     thread_id: str = Field(..., description="线程ID")
     decides: List[AllowedDecisions] = Field(..., description="决策列表")
-    is_all_decides: bool = Field(default=False, description="是否全部决策一致")
-    
+    is_all_decides: bool = Field(default=False, description="是否全部决策一致"),
+    is_message_all: bool = Field(default=False, description="是否返回所有消息"),
 
 
 if __name__ == "__main__":
