@@ -2,9 +2,10 @@
 请求数据模型
 """
 
-from typing import Dict, Any, Optional, List
+from typing import List
 from pydantic import BaseModel, Field
 from robot.agents.agent_invoke import ModelLabel
+from robot.agents.agent_invoke import AllowedDecisions
 
 
 class ReadLongTermInfoRequest(BaseModel):
@@ -40,6 +41,17 @@ class RunAgentRequest(BaseModel):
     thread_id: str = Field(..., description="线程ID")
     model_label: ModelLabel = Field(default="deepseek", description="模型标签")
     is_message_all: bool = Field(default=False, description="是否返回所有消息")
+
+
+class RunAgentInterruptsJudgeRequest(BaseModel):
+    """
+    中断恢复流式运行智能体请求模型
+    """
+    user_id: str = Field(..., description="用户ID")
+    thread_id: str = Field(..., description="线程ID")
+    decides: List[AllowedDecisions] = Field(..., description="决策列表")
+    is_all_decides: bool = Field(default=False, description="是否全部决策一致")
+    
 
 
 if __name__ == "__main__":

@@ -7,10 +7,10 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Header
 from fastapi.responses import StreamingResponse
 from utils.logger_manager import LoggerManager
-from utils.api_utils.request_models import RunAgentRequest
+from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
 from utils.api_utils.data_processing import agent_message_to_dict
 
-from robot.agents.agent_invoke import run_agent, run_agent_astream
+from robot.agents.agent_invoke import run_agent, run_agent_astream, interrypts_judge_astream
 from typing import Optional
 logger = LoggerManager.get_logger(name='agent_interactive')
 
@@ -25,10 +25,9 @@ async def agent_interactive():
 
 @router.post("/run_agent/invoke")
 async def run_agent_invoke(
-    request: RunAgentRequest,
-    app_request: Request,
-    authorization: Optional[str] = Header(None),
-):
+        request: RunAgentRequest,
+        app_request: Request,
+        authorization: Optional[str] = Header(None),):
     """
     运行智能体请求
     """
@@ -146,4 +145,72 @@ async def run_agent_stream(
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
 
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+@router.post("/run_agent/interrupts_judge/stream")
+async def run_agent_interrupts_judge_stream(
+    request: RunAgentInterruptsJudgeRequest,
+    app_request: Request,
+):
+    """
+    中断恢复流式运行智能体请求
+    """
+    user_id = request.user_id
+    thread_id = request.thread_id
+    decides = request.decides
+    is_all_decides = request.is_all_decides
+    # 获取应用状态
+    state = app_request.app.state
+    agent_args = {
+        "user_id": user_id,
+        "thread_id": thread_id,
+    }
+
+    async def generate():
+        order_num = 0
+        async for chunk in interrypts_judge_astream(
+            agent=state.agent,
+            user_id=user_id,
+            thread_id=thread_id,
+            session_redis=state.session_redis,
+            decides=decides,
+            is_all_decides=is_all_decides,
+        ):
+            order_num += 1
+            if chunk.get("model"):
+                data_type = "agent"
+                message = "智能体消息"
+                data = agent_message_to_dict(chunk['model']['messages'][-1])
+            elif chunk.get("tools"):
+                data_type = "tool"
+                message = "工具消息"
+                data = agent_message_to_dict(chunk['tools']['messages'][-1])
+            elif chunk.get("__interrupt__"):
+                data_type = "interrupt"
+                message = "中断消息"
+                data = agent_message_to_dict(chunk['__interrupt__'][0])
+            else:
+                data_type = "unknown"
+                message = "未知消息"
+                data = None
+            agent_response = {
+                "success": True,
+                "agent_args": agent_args,
+                "order": {"num": order_num, "is_end": False},
+                "data": data,
+                "data_type": data_type,
+                "message": message,
+            }
+            yield json.dumps(agent_response, ensure_ascii=False, default=str) + "\n"
+
+        end_response = {
+            "success": True,
+            "agent_args": agent_args,
+            "order": {"num": order_num + 1, "is_end": True},
+            "data": None,
+            "data_type": "end",
+            "message": "流式输出结束",
+        }
+        yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
     return StreamingResponse(generate(), media_type="application/x-ndjson")
