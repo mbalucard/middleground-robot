@@ -9,6 +9,8 @@ from robot.agents.main_agent import build_agent
 from robot.tools.memory_device import postgres_resources
 from robot.tools.session_redis import SessionRedis
 from utils.redis_link import RedisManager
+from utils.api_utils.db_models import init_db
+from utils.db_link import PostgresServer
 
 from src.routes.agent_interactive import router as agent_interactive_router
 from src.routes.session_management import router as session_management_router
@@ -23,10 +25,16 @@ async def lifespan(app: FastAPI):
     FastAPI 生命周期管理
     """
     session_redis = None
+    db_server = None
     try:
         session_redis = SessionRedis()
         app.state.session_redis = session_redis
         logger.info("FastAPI Session Redis 初始化完成")
+
+        await init_db()
+        db_server = PostgresServer()
+        app.state.db_server = db_server
+        logger.info("FastAPI Postgres 初始化完成")
 
         async with postgres_resources() as pg:
             app.state.store = pg.store
@@ -44,6 +52,10 @@ async def lifespan(app: FastAPI):
     finally:
         if session_redis is not None:
             await session_redis.close()
+            logger.info("关闭 Session Redis 连接成功")
+        if db_server is not None:
+            await db_server.close()
+            logger.info("关闭 Postgres 数据库连接成功")
         logger.info("关闭服务并完成资源清理")
 
 

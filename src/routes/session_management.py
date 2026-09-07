@@ -14,6 +14,7 @@ from utils.api_utils.data_processing import format_long_term_info_key, agent_mes
 from utils.api_utils.request_models import ReadLongTermInfoRequest, LongTermInfoDetailRequest, WriteLongTermInfoRequest
 from utils.api_utils.memory_service import get_memory_service, get_short_term_memory_service
 from robot.tools.general_tool import new_thread_id
+from utils.api_utils.db_models import UserThread
 
 
 logger = LoggerManager.get_logger(name='session_management')
@@ -113,11 +114,27 @@ async def create_session_thread(
     创建会话线程
     """
     thread_id = new_thread_id()
-    response = {
-        "success": True,
-        "data": {"user_id": user_id, "thread_id": thread_id},
-        "message": "成功创建会话线程",
-    }
+    state = app_request.app.state
+    async with state.db_server.get_db_session() as db_session:
+        try:
+            user_thread = UserThread(
+                user_id=user_id,
+                thread_id=thread_id,
+            )
+            db_session.add(user_thread)
+            await db_session.commit()
+            # await db_session.refresh(user_thread)  # 刷新数据状态
+            response = {
+                "success": True,
+                "data": {"user_id": user_thread.user_id, "thread_id": user_thread.thread_id},
+                "message": "成功创建会话线程",
+            }
+        except Exception as e:
+            logger.error(f"{user_id}创建会话线程失败: {str(e)}")
+            response = {
+                "success": False,
+                "message": f"{user_id}创建会话线程失败: {str(e)}",
+            }
     return response
 
 
@@ -134,11 +151,13 @@ async def user_session_thread_details(
         "user_id": user_id,
         "thread_id": thread_id,
     }
+    # 获取短期记忆服务
     memory_service = await get_short_term_memory_service(
         state=state,
         thread_id=thread_id,
         user_id=user_id
     )
+    # 获取短期记忆服务中的消息
     messages = await memory_service.get_context(context_type="messages")
     message_list = []
     for item in messages:

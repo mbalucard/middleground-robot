@@ -30,7 +30,7 @@ class RobotMessage(Base):
     chat_type = Column(String(16), nullable=False, comment="对话类型")
     aibot_id = Column(String(64), nullable=False, comment="企微机器人id")
     create_time = Column(String(32), nullable=False,
-default=get_current_datetime(), comment="创建时间")
+                         default=get_current_datetime(), comment="创建时间")
 
     def to_dict(self):
         return {
@@ -59,7 +59,8 @@ class RobotToolCall(Base):
     tool_name = Column(String(64), nullable=False, comment="工具名称")
     tool_input = Column(Text, nullable=True, comment="工具输入")
     tool_output = Column(Text, nullable=True, comment="工具输出")
-    create_time = Column(String(32), nullable=False, default=get_current_datetime(), comment="创建时间")
+    create_time = Column(String(32), nullable=False,
+                         default=get_current_datetime(), comment="创建时间")
 
     def to_dict(self):
         return {

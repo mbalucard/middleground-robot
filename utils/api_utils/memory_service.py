@@ -1,5 +1,9 @@
 """
 记忆服务，用来处理记忆相关的业务逻辑
+    - MemoryService: 长期记忆服务
+    - ShortTermMemoryService: 短期记忆服务
+    - get_memory_service: 获取长期记忆服务
+    - get_short_term_memory_service: 获取短期记忆服务
 """
 
 
@@ -149,6 +153,11 @@ class ShortTermMemoryService:
     """短期记忆服务"""
 
     def __init__(self, agent_state: StateSnapshot):
+        """
+        初始化短期记忆服务
+        Args:
+            agent_state: 代理状态
+        """
         self.state = agent_state
 
     async def get_context(
@@ -218,6 +227,15 @@ class ShortTermMemoryService:
 
 
 async def get_short_term_memory_service(state, thread_id: str, user_id: str):
+    """
+    获取短期记忆服务
+    Args:
+        state: 应用程序状态
+        thread_id: 会话线程id
+        user_id: 用户id
+    Returns:
+        ShortTermMemoryService: 短期记忆服务
+    """
     try:
         config = invoke_config(thread_id=thread_id, user_id=user_id)
         state = await state.agent.aget_state(config)
