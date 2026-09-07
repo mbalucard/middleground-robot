@@ -11,11 +11,10 @@ Session管理路由
 from fastapi import APIRouter, HTTPException, Request
 from utils.logger_manager import LoggerManager
 from utils.api_utils.data_processing import format_long_term_info_key, agent_message_to_dict
-from utils.api_utils.request_models import ReadLongTermInfoRequest, LongTermInfoDetailRequest, WriteLongTermInfoRequest
+from utils.api_utils.request_models import LongTermInfoRequest, UserThreadRequest
 from utils.api_utils.memory_service import get_memory_service, get_short_term_memory_service
 from robot.tools.general_tool import new_thread_id
-from utils.api_utils.db_models import UserThread
-
+from utils.api_utils.db_execute import UserThreadExecute
 
 logger = LoggerManager.get_logger(name='session_management')
 
@@ -32,12 +31,13 @@ async def session_management():
 
 @router.post("/long_term_info/read")
 async def read_long_term_info(
-        request: ReadLongTermInfoRequest,
+        request: LongTermInfoRequest,
         app_request: Request):
     """
     读取用户所有长期记忆信息详情
     """
     user_id = request.user_id
+
     state = app_request.app.state
     memory_service = get_memory_service(state)
     memories = await memory_service.read_long_term_info(user_id)
@@ -64,13 +64,17 @@ async def read_long_term_info(
 
 @router.post("/long_term_info/delete")
 async def delete_long_term_info(
-        request: LongTermInfoDetailRequest,
+        request: LongTermInfoRequest,
         app_request: Request):
     """
     删除用户指定长期记忆信息
     """
-    key = format_long_term_info_key(request.key)
+    # 检查请求字段是否合法
+    if not request.key:
+        raise HTTPException(status_code=400, detail="删除长期记忆信息失败，key不能为空")
     user_id = request.user_id
+    key = format_long_term_info_key(request.key)
+
     state = app_request.app.state
     memory_service = get_memory_service(state)
     delete_result = await memory_service.delete_long_term_info(user_id, key)
@@ -79,73 +83,88 @@ async def delete_long_term_info(
 
 @router.post("/long_term_info/write")
 async def write_long_term_info(
-        request: WriteLongTermInfoRequest,
+        request: LongTermInfoRequest,
         app_request: Request):
     """
     写入用户长期记忆信息
     """
+    # 检查请求字段是否合法
+    if not request.key or not request.content:
+        raise HTTPException(status_code=400, detail="写入长期记忆信息失败，key或content不能为空")
     user_id = request.user_id
     key = format_long_term_info_key(request.key)
     content = request.content
+
     state = app_request.app.state
     memory_service = get_memory_service(state)
     write_result = await memory_service.write_long_term_info(user_id, key, content)
     return write_result
 
 
-@router.post("/seesion_thread/delete")
+@router.post("/session_thread/delete")
 async def delete_session_thread(
-        thread_id: str,
+        request: UserThreadRequest,
         app_request: Request):
     """
     删除会话线程
     """
+    # 检查请求字段是否合法
+    if not request.thread_id:
+        raise HTTPException(status_code=400, detail="删除会话线程失败，thread_id不能为空")
+    user_id = request.user_id
+    thread_id = request.thread_id
+
     state = app_request.app.state
-    checkpointer = state.checkpointer
-    await checkpointer.adelete_thread(thread_id)
-    return {"success": True, "message": "成功删除会话"}
+    user_thread_execute = UserThreadExecute(state.db_server)
+    data = await user_thread_execute.update_user_thread(user_id=user_id, thread_id=thread_id, is_active=0, is_deleted=1)
+    if data:
+        checkpointer = state.checkpointer
+        await checkpointer.adelete_thread(thread_id)
+        return {"success": True, "message": "成功删除会话"}
+    else:
+        return {"success": False, "message": "删除会话线程失败"}
 
 
 @router.post("/session_thread/create")
 async def create_session_thread(
-        user_id: str,
+        request: UserThreadRequest,
         app_request: Request):
     """
     创建会话线程
     """
+    user_id = request.user_id
+
     thread_id = new_thread_id()
     state = app_request.app.state
-    async with state.db_server.get_db_session() as db_session:
-        try:
-            user_thread = UserThread(
-                user_id=user_id,
-                thread_id=thread_id,
-            )
-            db_session.add(user_thread)
-            await db_session.commit()
-            # await db_session.refresh(user_thread)  # 刷新数据状态
-            response = {
-                "success": True,
-                "data": {"user_id": user_thread.user_id, "thread_id": user_thread.thread_id},
-                "message": "成功创建会话线程",
-            }
-        except Exception as e:
-            logger.error(f"{user_id}创建会话线程失败: {str(e)}")
-            response = {
-                "success": False,
-                "message": f"{user_id}创建会话线程失败: {str(e)}",
-            }
+    user_thread_execute = UserThreadExecute(state.db_server)
+    data = await user_thread_execute.create_user_thread(user_id=user_id, thread_id=thread_id)
+    if data:
+        response = {
+            "success": True,
+            "data": {"user_id": data.get("user_id"), "thread_id": data.get("thread_id")},
+            "message": "成功创建会话线程",
+        }
+    else:
+        response = {
+            "success": False,
+            "message": "创建会话线程失败",
+        }
     return response
 
 
 @router.post("/user_session_thread/details")
 async def user_session_thread_details(
-        user_id: str,
-        thread_id: str,
+        request: UserThreadRequest,
         app_request: Request):
     """
     获取用户会话详情
     """
+    # 检查请求字段是否合法
+    if not request.thread_id:
+        raise HTTPException(status_code=400, detail="获取用户会话详情失败，thread_id不能为空")
+    user_id = request.user_id
+    thread_id = request.thread_id
+
     state = app_request.app.state
     agent_args = {
         "user_id": user_id,
@@ -177,12 +196,17 @@ async def user_session_thread_details(
 
 @router.post("/user_session_thread/interrupt")
 async def user_session_thread_interrupt(
-        user_id: str,
-        thread_id: str,
+        request: UserThreadRequest,
         app_request: Request):
     """
     获取会话中断信息
     """
+    # 检查请求字段是否合法
+    if not request.thread_id:
+        raise HTTPException(status_code=400, detail="获取会话中断信息失败，thread_id不能为空")
+    user_id = request.user_id
+    thread_id = request.thread_id
+
     state = app_request.app.state
     memory_service = await get_short_term_memory_service(
         state=state,

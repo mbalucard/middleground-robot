@@ -130,7 +130,7 @@ async def interrypts_judge(
     )
     context = Context(
         model=interrupt_info.get('model_label', 'deepseek'),
-        api_key=interrupt_info.get('api_key', '123'),
+        api_key=interrupt_info.get('api_key'),
         thread_id=interrupt_info.get('thread_id'),
         user_id=interrupt_info.get('user_id')
     )
@@ -152,7 +152,7 @@ async def interrypts_judge(
                 "thread_id": thread_id,
                 "interrupt_list": interrupt_list,
                 "model_label": interrupt_info.get('model_label', 'deepseek'),
-                "api_key": interrupt_info.get('api_key', '123'),
+                "api_key": interrupt_info.get('api_key'),
                 "_t": timestamp(),
                 "type": "interrupt"
             }
@@ -282,7 +282,7 @@ async def interrypts_judge_astream(
     # 构建上下文
     context = Context(
         model=interrupt_info.get('model_label', 'deepseek'),
-        api_key=interrupt_info.get('api_key', '123'),
+        api_key=interrupt_info.get('api_key'),
         thread_id=interrupt_info.get('thread_id'),
         user_id=interrupt_info.get('user_id')
     )
@@ -314,7 +314,7 @@ async def interrypts_judge_astream(
                         "thread_id": thread_id,
                         "interrupt_list": interrupt_list,
                         "model_label": interrupt_info.get('model_label', 'deepseek'),
-                        "api_key": interrupt_info.get('api_key', '123'),
+                        "api_key": interrupt_info.get('api_key'),
                         "_t": timestamp(),
                         "type": "interrupt"
                     }

@@ -1,5 +1,9 @@
 """
 请求数据模型
+    - LongTermInfoRequest: 长期记忆信息请求模型
+    - UserThreadRequest: 用户会话线程请求模型
+    - RunAgentRequest: 运行智能体请求模型
+    - RunAgentInterruptsJudgeRequest: 中断恢复流式运行智能体请求模型
 """
 
 from typing import List
@@ -8,28 +12,21 @@ from robot.agents.agent_invoke import ModelLabel
 from robot.agents.agent_invoke import AllowedDecisions
 
 
-class ReadLongTermInfoRequest(BaseModel):
+class LongTermInfoRequest(BaseModel):
     """
     长期记忆信息请求模型
     """
     user_id: str = Field(..., description="用户ID")
+    key: str = Field(None, description="记忆键")
+    content: str = Field(None, description="记忆内容")
 
 
-class LongTermInfoDetailRequest(BaseModel):
+class UserThreadRequest(BaseModel):
     """
-    长期记忆信息详情请求模型
-    """
-    user_id: str = Field(..., description="用户ID")
-    key: str = Field(..., description="记忆键")
-
-
-class WriteLongTermInfoRequest(BaseModel):
-    """
-    写入长期记忆信息请求模型
+    用户会话线程请求模型
     """
     user_id: str = Field(..., description="用户ID")
-    key: str = Field(..., description="记忆键")
-    content: str = Field(..., description="记忆内容")
+    thread_id: str = Field(None, description="线程ID")
 
 
 class RunAgentRequest(BaseModel):
@@ -55,6 +52,6 @@ class RunAgentInterruptsJudgeRequest(BaseModel):
 
 
 if __name__ == "__main__":
-    data = WriteLongTermInfoRequest(
+    data = LongTermInfoRequest(
         user_id="user01", key="/2026-08-30.md", content="今天苏州下大雨！")
     print(data)

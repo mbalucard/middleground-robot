@@ -63,8 +63,7 @@ async def run_agent_invoke(
         messages_value = result.value["messages"]
         messages = [agent_message_to_dict(item) for item in messages_value]
     else:
-        messages_value = [result.value["messages"][-1]]
-        messages = [agent_message_to_dict(messages_value)]
+        messages = [agent_message_to_dict(result.value["messages"][-1])]
 
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
@@ -109,12 +108,21 @@ async def run_agent_interrupts_judge_invoke(
         is_all_decides=is_all_decides,
     )
 
+    if result is None:
+        return {
+            "success": False,
+            "agent_args": agent_args,
+            "total": 0,
+            "data": [],
+            "data_type": "agent_message",
+            "message": "中断恢复失败：无有效中断信息或决策参数不合法",
+        }
+
     if is_message_all:
         message_value = result.value["messages"]
         messages = [agent_message_to_dict(item) for item in message_value]
     else:
-        message_value = [result.value["messages"][-1]]
-        messages = [agent_message_to_dict(message_value)]
+        messages = [agent_message_to_dict(result.value["messages"][-1])]
 
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
@@ -236,6 +244,17 @@ async def run_agent_interrupts_judge_stream(
             decides=decides,
             is_all_decides=is_all_decides,
         ):
+            if chunk is None:
+                yield json.dumps({
+                    "success": False,
+                    "agent_args": agent_args,
+                    "order": {"num": 1, "is_end": True},
+                    "data": None,
+                    "data_type": "error",
+                    "message": "中断恢复失败：无有效中断信息或决策参数不合法",
+                }, ensure_ascii=False, default=str) + "\n"
+                return
+
             order_num += 1
             if chunk.get("model"):
                 data_type = "agent"

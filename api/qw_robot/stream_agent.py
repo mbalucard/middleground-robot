@@ -32,14 +32,17 @@ async def agent_astream(
     流式运行智能体
     Args:
         agent: 智能体
-        question: 问题（兼容旧调用；有 user_content 时仅作兜底）
-        thread_id: 线程ID
-        user_id: 用户ID
-        model_name: 模型名称 deepseek / minimax / minimax_m3 / deepseek_vision
-        api_key: 通行密匙
-        message_id: 消息ID
-        redis_client: redis客户端
-        user_content: 优先使用的用户消息内容（str 或多模态 content 列表）
+        question(str): 问题（兼容旧调用；有 user_content 时仅作兜底）
+        thread_id(str): 线程ID
+        user_id(str): 用户ID
+        model_name(str): 模型名称, default="deepseek"
+            - deepseek / minimax / minimax_m3 / deepseek_vision
+        api_key(Optional[str]): 通行密匙, default=None
+        message_id(Optional[str]): 消息ID, default=None
+        redis_client(Optional[redis.Redis]): redis客户端, default=None
+        user_content(Optional[UserContent]): 优先使用的用户消息内容（str 或多模态 content 列表）, default=None
+    Returns:
+        流式产出的文本片段（回答/思考/工具调用提示）
     """
     mes_list = []
     # 初始化消息配置
@@ -116,13 +119,17 @@ async def agent_astream(
                 )
             # yield f"工具结果：{tool_msg.content}"
     # 会话存表
-    if redis_client:
+    if redis_client and mes_list:
         mes_key = await session_hset(
             redis_client=redis_client,
             message_id=message_id,
             user_id=user_id,
             answer=mes_list[-1].content,
             model_name=mes_list[-1].response_metadata.get("model_name"),
+        )
+    elif redis_client and not mes_list:
+        logger.warning(
+            f"流式结束但无模型消息可落库: user_id={user_id}, message_id={message_id}"
         )
 
 
@@ -136,7 +143,7 @@ if __name__ == "__main__":
 
     async def main():
         async with postgres_resources() as pg:
-            agent = build_agent(checkpointer=pg.checkpointer, store=pg.store)
+            agent = await build_agent(checkpointer=pg.checkpointer, store=pg.store)
             async for text in agent_astream(agent, question, thread_id, user_id="test01"):
                 print(text, flush=True)
     asyncio.run(main())
