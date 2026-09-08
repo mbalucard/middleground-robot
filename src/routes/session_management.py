@@ -13,7 +13,7 @@ from utils.logger_manager import LoggerManager
 from utils.api_utils.data_processing import format_long_term_info_key, agent_message_to_dict
 from utils.api_utils.request_models import LongTermInfoRequest, UserThreadRequest
 from utils.api_utils.memory_service import get_memory_service, get_short_term_memory_service
-from robot.tools.general_tool import new_thread_id
+from robot.tools.general_tool import new_id
 from utils.api_utils.db_execute import UserThreadExecute
 
 logger = LoggerManager.get_logger(name='session_management')
@@ -134,7 +134,7 @@ async def create_session_thread(
     """
     user_id = request.user_id
 
-    thread_id = new_thread_id()
+    thread_id = new_id(id_type="thread")
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
     data = await user_thread_execute.create_user_thread(user_id=user_id, thread_id=thread_id)

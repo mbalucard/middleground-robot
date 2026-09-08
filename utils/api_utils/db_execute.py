@@ -11,6 +11,7 @@ from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name='user_thread_execute')
 
+
 class UserThreadExecute:
     """
     用户会话线程执行工具
@@ -73,6 +74,22 @@ class UserThreadExecute:
                 return result.rowcount
         except Exception as e:
             logger.error(f"删除用户会话线程失败: {str(e)}")
+            return None
+
+    async def select_user_thread(self, **kwargs):
+        """
+        查询用户会话线程
+        Args:
+            **kwargs: 查询参数
+        Returns:
+            list: 用户会话线程数据
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                result = await db_session.execute(select(UserThread).where(**kwargs))
+                return result.scalars().all()
+        except Exception as e:
+            logger.error(f"查询用户会话线程失败: {str(e)}")
             return None
 
 
