@@ -14,6 +14,7 @@ from utils.db_link import PostgresServer
 
 from src.routes.agent_interactive import router as agent_interactive_router
 from src.routes.session_management import router as session_management_router
+from src.routes.memory_management import router as memory_management_router
 from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name='fastapi_main')
@@ -68,7 +69,7 @@ app = FastAPI(
 
 app.include_router(agent_interactive_router)
 app.include_router(session_management_router)
-
+app.include_router(memory_management_router)
 
 @app.get("/")
 def read_root():
