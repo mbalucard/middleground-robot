@@ -1,6 +1,7 @@
 """
 Session管理路由
     - create_session_thread: 创建会话线程
+    - user_thread_list: 获取用户会话线程列表
     - delete_session_thread: 删除会话线程
 """
 from fastapi import APIRouter, HTTPException, Request
@@ -44,7 +45,36 @@ async def create_session_thread(
     else:
         response = {
             "success": False,
+            "data": {},
             "message": "创建会话线程失败",
+        }
+    return response
+
+
+@router.post("/session_thread/user_thread_list")
+async def user_thread_list(
+        request: UserThreadRequest,
+        app_request: Request):
+    """
+    获取用户会话线程列表
+    """
+    user_id = request.user_id
+    state = app_request.app.state
+    user_thread_execute = UserThreadExecute(state.db_server)
+    threads = await user_thread_execute.select_user_thread(user_id=user_id, is_deleted=0)
+    if threads:
+        fields = ["user_id", "thread_id", "is_active"]
+        new_data = [{k: row[k] for k in fields} for row in threads]
+        response = {
+            "success": True,
+            "data": new_data,
+            "message": "成功获取用户会话线程列表",
+        }
+    else:
+        response = {
+            "success": False,
+            "data": [],
+            "message": "未找到用户会话线程",
         }
     return response
 
