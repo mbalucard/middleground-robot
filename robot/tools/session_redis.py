@@ -16,7 +16,7 @@ class SessionRedis(RedisManager):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.timeout = 300
+        self.timeout = 600
 
     async def get_session(self, user_id: str, thread_id: str):
         """

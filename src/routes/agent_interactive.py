@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from utils.logger_manager import LoggerManager
 from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
 from utils.api_utils.data_processing import agent_message_to_dict
+from utils.api_utils.db_execute import UserThreadExecute
 
 from robot.agents.agent_invoke import run_agent, interrypts_judge, run_agent_astream, interrypts_judge_astream
 from typing import Optional
@@ -44,12 +45,28 @@ async def run_agent_invoke(
     is_message_all = request.is_message_all
     # 获取应用状态
     state = app_request.app.state
+    user_thread_execute = UserThreadExecute(state.db_server)
+
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
         "model_label": model_name,
     }
-
+    # 检查会话线程是否存在
+    is_exist = await user_thread_execute.check_user_thread(
+        user_id=user_id,
+        thread_id=thread_id
+    )
+    if not is_exist.get("is_exist"):
+        return {
+            "success": False,
+            "agent_args": agent_args,
+            "total": 0,
+            "data": [],
+            "data_type": "error",
+            "message": is_exist.get("message")
+        }
+    # 运行智能体请求
     result = await run_agent(
         agent=state.agent,
         query=query,
@@ -95,10 +112,26 @@ async def run_agent_interrupts_judge_invoke(
     is_message_all = request.is_message_all
     # 获取应用状态
     state = app_request.app.state
+    user_thread_execute = UserThreadExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
     }
+    # 检查会话线程是否存在
+    is_exist = await user_thread_execute.check_user_thread(
+        user_id=user_id,
+        thread_id=thread_id
+    )
+    if not is_exist.get("is_exist"):
+        return {
+            "success": False,
+            "agent_args": agent_args,
+            "total": 0,
+            "data": [],
+            "data_type": "error",
+            "message": is_exist.get("message")
+        }
+    # 中断恢复运行智能体请求
     result = await interrypts_judge(
         agent=state.agent,
         user_id=user_id,
@@ -107,14 +140,14 @@ async def run_agent_interrupts_judge_invoke(
         decides=decides,
         is_all_decides=is_all_decides,
     )
-
+    # 检查中断恢复结果
     if result is None:
         return {
             "success": False,
             "agent_args": agent_args,
             "total": 0,
             "data": [],
-            "data_type": "agent_message",
+            "data_type": "error",
             "message": "中断恢复失败：无有效中断信息或决策参数不合法",
         }
 
@@ -158,13 +191,29 @@ async def run_agent_stream(
     model_name = request.model_label
     # 获取应用状态
     state = app_request.app.state
+    user_thread_execute = UserThreadExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
         "model_label": model_name,
     }
+    # 检查会话线程是否存在
+    is_exist = await user_thread_execute.check_user_thread(
+        user_id=user_id,
+        thread_id=thread_id
+    )
 
     async def generate():
+        if not is_exist.get("is_exist"):
+            yield json.dumps({
+                "success": False,
+                "agent_args": agent_args,
+                "total": 0,
+                "data": [],
+                "data_type": "error",
+                "message": is_exist.get("message")
+            }, ensure_ascii=False, default=str) + "\n"
+            return
         order_num = 0
         async for chunk in run_agent_astream(
             agent=state.agent,
@@ -229,12 +278,31 @@ async def run_agent_interrupts_judge_stream(
     is_all_decides = request.is_all_decides
     # 获取应用状态
     state = app_request.app.state
+    user_thread_execute = UserThreadExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
     }
+    # 检查会话线程是否存在
+    is_exist = await user_thread_execute.check_user_thread(
+        user_id=user_id,
+        thread_id=thread_id
+    )
+
+    # 中断恢复流式运行智能体请求
 
     async def generate():
+        if not is_exist.get("is_exist"):
+            yield json.dumps({
+                "success": False,
+                "agent_args": agent_args,
+                "total": 0,
+                "data": [],
+                "data_type": "error",
+                "message": is_exist.get("message")
+            }, ensure_ascii=False, default=str) + "\n"
+            return
+
         order_num = 0
         async for chunk in interrypts_judge_astream(
             agent=state.agent,

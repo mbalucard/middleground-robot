@@ -101,7 +101,7 @@ async def interrypts_judge(
     # 获取中断信息
     interrupt_info = await session_redis.get_session(user_id=user_id, thread_id=thread_id)
     if not interrupt_info:
-        logger.warning(f"用户当前对话不存在中断信息: user_id={user_id}, thread_id={thread_id}")
+        logger.warning(f"当前用户会话不存在中断或已过期: user_id={user_id}, thread_id={thread_id}")
         return None
     # 构建决策列表
     decisions = []
