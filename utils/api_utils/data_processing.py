@@ -1,5 +1,7 @@
 """
 数据处理工具
+    - format_long_term_info_key 格式化长期记忆信息键
+    - agent_message_to_dict 将Agent消息转换为字典
 """
 from typing import Union
 from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
@@ -7,6 +9,8 @@ from langgraph.types import Interrupt
 from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="data_processing")
+
+AgentMessageType = Union[AIMessage, ToolMessage, Interrupt, HumanMessage]
 
 
 def format_long_term_info_key(content: str) -> str:
@@ -16,7 +20,7 @@ def format_long_term_info_key(content: str) -> str:
     return f"/{content.replace(' ', '_')}.md"
 
 
-def agent_message_to_dict(message: Union[AIMessage, ToolMessage, Interrupt, HumanMessage]) -> dict:
+def agent_message_to_dict(message: AgentMessageType) -> dict:
     """
     将Agent消息转换为字典
     Args:

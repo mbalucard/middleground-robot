@@ -18,48 +18,52 @@ class SessionRedis(RedisManager):
         super().__init__(*args, **kwargs)
         self.timeout = 600
 
-    async def get_session(self, user_id: str, thread_id: str):
+    async def get_session(self, user_id: str, thread_id: str, message_id: str = ''):
         """
         获取会话信息
         Args:
             user_id: 用户ID
             thread_id: 会话ID
+            message_id: 消息ID, default=''
         Returns:
             dict: 会话信息
         """
-        key = f"session:{user_id}-{thread_id}"
+        key = f"session:{user_id}-{thread_id}-{message_id}"
         data = await self.redis_client.get(key)
         if data:
             return json.loads(data)
         else:
             return None
 
-    async def set_session(self, user_id: str, thread_id: str, data: dict):
+    async def set_session(self, user_id: str, thread_id: str, data: dict, message_id: str = ''):
         """
         设置会话信息
         Args:
             user_id: 用户ID
             thread_id: 会话ID
             data: 会话信息
+            message_id: 消息ID, default=''
         Returns:
             bool: 是否设置成功
         """
-        key = f"session:{user_id}-{thread_id}"
+        key = f"session:{user_id}-{thread_id}-{message_id}"
         await self.redis_client.set(key, value=json.dumps(data), ex=self.timeout)
         return True
 
-    async def delete_session(self, user_id: str, thread_id: str):
+    async def delete_session(self, user_id: str, thread_id: str, message_id: str = ''):
         """
         删除会话信息
         Args:
             user_id: 用户ID
             thread_id: 会话ID
+            message_id: 消息ID, default=''
         Returns:
             bool: 是否删除成功
         """
-        key = f"session:{user_id}-{thread_id}"
+        key = f"session:{user_id}-{thread_id}-{message_id}"
         await self.redis_client.delete(key)
         return True
+
 
 if __name__ == "__main__":
     import asyncio

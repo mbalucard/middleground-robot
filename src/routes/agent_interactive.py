@@ -10,7 +10,8 @@ from fastapi.responses import StreamingResponse
 from utils.logger_manager import LoggerManager
 from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
 from utils.api_utils.data_processing import agent_message_to_dict
-from utils.api_utils.db_execute import UserThreadExecute
+from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute
+from robot.tools.general_tool import new_id
 
 from robot.agents.agent_invoke import run_agent, interrypts_judge, run_agent_astream, interrypts_judge_astream
 from typing import Optional
@@ -41,7 +42,8 @@ async def run_agent_invoke(
     user_id = request.user_id
     query = request.query
     thread_id = request.thread_id
-    model_name = request.model_label
+    message_id = new_id(id_type="message")
+    model_label = request.model_label
     is_message_all = request.is_message_all
     # 获取应用状态
     state = app_request.app.state
@@ -50,7 +52,8 @@ async def run_agent_invoke(
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
-        "model_label": model_name,
+        "message_id": message_id,
+        "model_label": model_label,
     }
     # 检查会话线程是否存在
     is_exist = await user_thread_execute.check_user_thread(
@@ -66,13 +69,24 @@ async def run_agent_invoke(
             "data_type": "error",
             "message": is_exist.get("message")
         }
+    
+    message_execute = UserThreadMessageExecute(state.db_server)
+    db_insert_info = await message_execute.create_message(
+        user_id=user_id,
+        thread_id=thread_id,
+        message_id=message_id,
+        message_type="api",
+        query=query,
+        model_label=model_label,
+    )
     # 运行智能体请求
     result = await run_agent(
         agent=state.agent,
         query=query,
         thread_id=thread_id,
+        message_id=message_id,
         user_id=user_id,
-        model_name=model_name,
+        model_name=model_label,
         api_key=api_key,
         session_redis=state.session_redis,
     )
@@ -85,6 +99,15 @@ async def run_agent_invoke(
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
         messages.append(interrupt_info)
+    else:
+        db_update_info = await message_execute.update_message(
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            answer=messages[-1].get("content"),
+            model_name=messages[-1].get("response_metadata").get("model_name"),
+            model_norm=messages[-1].get("response_metadata").get("model_provider"),
+        )
 
     agent_response = {
         "success": True,
@@ -107,6 +130,7 @@ async def run_agent_interrupts_judge_invoke(
     """
     user_id = request.user_id
     thread_id = request.thread_id
+    message_id = request.message_id
     decides = request.decides
     is_all_decides = request.is_all_decides
     is_message_all = request.is_message_all
@@ -116,6 +140,7 @@ async def run_agent_interrupts_judge_invoke(
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
+        "message_id": message_id,
     }
     # 检查会话线程是否存在
     is_exist = await user_thread_execute.check_user_thread(
@@ -137,6 +162,7 @@ async def run_agent_interrupts_judge_invoke(
         user_id=user_id,
         thread_id=thread_id,
         session_redis=state.session_redis,
+        message_id=message_id,
         decides=decides,
         is_all_decides=is_all_decides,
     )
@@ -160,6 +186,16 @@ async def run_agent_interrupts_judge_invoke(
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
         messages.append(interrupt_info)
+    else:
+        message_execute = UserThreadMessageExecute(state.db_server)
+        db_update_info = await message_execute.update_message(
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            answer=messages[-1].get("content"),
+            model_name=messages[-1].get("response_metadata").get("model_name"),
+            model_norm=messages[-1].get("response_metadata").get("model_provider"),
+        )
 
     agent_response = {
         "success": True,
@@ -188,14 +224,16 @@ async def run_agent_stream(
     user_id = request.user_id
     query = request.query
     thread_id = request.thread_id
-    model_name = request.model_label
+    model_label = request.model_label
+    message_id = new_id(id_type="message")
     # 获取应用状态
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
-        "model_label": model_name,
+        "message_id": message_id,
+        "model_label": model_label,
     }
     # 检查会话线程是否存在
     is_exist = await user_thread_execute.check_user_thread(
@@ -220,7 +258,8 @@ async def run_agent_stream(
             query=query,
             thread_id=thread_id,
             user_id=user_id,
-            model_name=model_name,
+            message_id=message_id,
+            model_name=model_label,
             api_key=api_key,
             session_redis=state.session_redis,
         ):
@@ -274,6 +313,7 @@ async def run_agent_interrupts_judge_stream(
     """
     user_id = request.user_id
     thread_id = request.thread_id
+    message_id = request.message_id
     decides = request.decides
     is_all_decides = request.is_all_decides
     # 获取应用状态
@@ -282,6 +322,7 @@ async def run_agent_interrupts_judge_stream(
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
+        "message_id": message_id,
     }
     # 检查会话线程是否存在
     is_exist = await user_thread_execute.check_user_thread(
@@ -308,6 +349,7 @@ async def run_agent_interrupts_judge_stream(
             agent=state.agent,
             user_id=user_id,
             thread_id=thread_id,
+            message_id=message_id,
             session_redis=state.session_redis,
             decides=decides,
             is_all_decides=is_all_decides,
