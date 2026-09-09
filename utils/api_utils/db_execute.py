@@ -5,8 +5,9 @@
 
 
 from fastapi import HTTPException
-from sqlalchemy import select, update, delete
-from utils.api_utils.db_models import UserThread, MessageToolCalls, UserThreadMessage
+from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
+from utils.api_utils.db_models import UserThread, UserThreadMessage
 from utils.date_time import get_current_datetime
 from utils.db_link import PostgresServer
 from utils.logger_manager import LoggerManager
@@ -64,18 +65,35 @@ class UserThreadExecute:
 
     async def delete_user_thread(self, user_id: str, thread_id: str):
         """
-        删除用户会话线程
+        删除用户会话线程，并级联删除关联的消息和工具调用
         Args:
             user_id: 用户id
             thread_id: 会话线程id
         Returns:
-            int: 删除行数
+            int: 删除的线程行数
         """
         try:
             async with self.db_server.get_db_session() as db_session:
-                result = await db_session.execute(delete(UserThread).where(UserThread.user_id == user_id, UserThread.thread_id == thread_id))
+                stmt = (
+                    select(UserThread)
+                    .where(
+                        UserThread.user_id == user_id,
+                        UserThread.thread_id == thread_id,
+                    )
+                    .options(
+                        selectinload(UserThread.messages).selectinload(
+                            UserThreadMessage.tool_calls
+                        )
+                    )
+                )
+                result = await db_session.execute(stmt)
+                threads = result.scalars().all()
+                if not threads:
+                    return 0
+                for user_thread in threads:
+                    await db_session.delete(user_thread)
                 await db_session.commit()
-                return result.rowcount
+                return len(threads)
         except Exception as e:
             logger.error(f"删除用户会话线程失败: {str(e)}")
             raise HTTPException(
