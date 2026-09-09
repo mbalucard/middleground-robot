@@ -89,7 +89,8 @@ class UserThreadMessage(Base):
     message_type: Mapped[str] = mapped_column(String(64), comment="消息类型")
     query: Mapped[str] = mapped_column(Text, comment="问题内容")
     answer: Mapped[Optional[str]] = mapped_column(Text, comment="回答内容")
-    model_name: Mapped[str] = mapped_column(String(64), comment="模型名称")
+    model_label: Mapped[Optional[str]] = mapped_column(String(64), comment="模型标签")
+    model_name: Mapped[Optional[str]] = mapped_column(String(64), comment="模型名称")
     model_norm: Mapped[Optional[str]] = mapped_column(String(64), comment="模型规范")
     create_time: Mapped[str] = mapped_column(
         String(32), default=get_current_datetime, comment="创建时间")

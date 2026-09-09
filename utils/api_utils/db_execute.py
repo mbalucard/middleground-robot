@@ -159,6 +159,143 @@ class UserThreadExecute:
                 status_code=500, detail=f"检查用户会话线程失败: {str(e)}")
 
 
+
+class UserThreadMessageExecute:
+    """
+    用户会话消息执行工具
+    """
+    def __init__(self, db_server: PostgresServer):
+        self.db_server = db_server
+    
+    async def create_user_thread_message(
+        self,
+        user_id:str,
+        thread_id:str,
+        message_id:str,
+        **kwargs,
+        ):
+        """
+        创建用户会话消息
+        Args:
+            user_id: 用户id
+            thread_id: 会话线程id
+            message_id: 消息id
+            **kwargs: 插入参数
+        Returns:
+            dict: 用户会话消息数据
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                thread_message = UserThreadMessage(
+                    user_id=user_id,
+                    thread_id=thread_id,
+                    message_id=message_id,
+                    **kwargs,
+                )
+                db_session.add(thread_message)
+                await db_session.commit()
+                return thread_message.to_dict()
+        except Exception as e:
+            logger.error(f"创建用户会话消息失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"创建用户会话消息失败: {str(e)}")
+
+    async def select_user_thread_message(self, *args, **kwargs):
+        """
+        查询用户会话消息
+        Args:
+            *args: 查询条件
+            **kwargs: 查询参数
+        Returns:
+            list: 用户会话消息数据
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                stmt = select(UserThreadMessage)
+                if args:
+                    stmt = stmt.where(*args)
+                if kwargs:
+                    stmt = stmt.filter_by(**kwargs)
+                result = await db_session.execute(stmt)
+                rows = result.scalars().all()
+                if rows:
+                    rows = [row.to_dict() for row in rows]
+                return rows
+        except Exception as e:
+            logger.error(f"查询用户会话消息失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"查询用户会话消息失败: {str(e)}")
+    
+    async def delete_user_thread_message(
+        self, 
+        user_id:str,
+        thread_id:str,
+        **kwargs
+        ):
+        """
+        删除用户会话消息
+        Args:
+            *args: 查询条件
+            **kwargs: 查询参数
+        Returns:
+            int: 删除的行数
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                stmt = (
+                    select(UserThreadMessage)
+                    .where(
+                        UserThreadMessage.user_id == user_id,
+                        UserThreadMessage.thread_id == thread_id,
+                        ).options(
+                            selectinload(UserThreadMessage.tool_calls)
+                        )
+                )
+                if kwargs:
+                    stmt = stmt.filter_by(**kwargs)
+                result = await db_session.execute(stmt)
+                rows = result.scalars().all()
+                if not rows:
+                    return 0
+                for row in rows:
+                    await db_session.delete(row)
+                await db_session.commit()
+                return len(rows)
+        except Exception as e:
+            logger.error(f"删除用户会话消息失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"删除用户会话消息失败: {str(e)}")
+
+    async def update_user_thread_message(
+        self,
+        user_id:str,
+        thread_id:str,
+        message_id:str,
+        **kwargs,
+        ):
+        """
+        更新用户会话消息
+        Args:
+            user_id: 用户id
+            thread_id: 会话线程id
+            message_id: 消息id
+            **kwargs: 更新参数
+        Returns:
+            int: 更新行数
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                stmt = update(UserThreadMessage).where(UserThreadMessage.user_id == user_id, UserThreadMessage.thread_id == thread_id, UserThreadMessage.message_id == message_id).values(update_time=get_current_datetime(), **kwargs)
+                result = await db_session.execute(stmt)
+                await db_session.commit()
+                return result.rowcount
+        except Exception as e:
+            logger.error(f"更新用户会话消息失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"更新用户会话消息失败: {str(e)}")
+
+
+
 if __name__ == "__main__":
     import asyncio
     db_server = PostgresServer()
