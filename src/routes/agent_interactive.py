@@ -48,7 +48,7 @@ async def run_agent_invoke(
     # 获取应用状态
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
-
+    message_execute = UserThreadMessageExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -69,16 +69,7 @@ async def run_agent_invoke(
             "data_type": "error",
             "message": is_exist.get("message")
         }
-    
-    message_execute = UserThreadMessageExecute(state.db_server)
-    db_insert_info = await message_execute.create_message(
-        user_id=user_id,
-        thread_id=thread_id,
-        message_id=message_id,
-        message_type="api",
-        query=query,
-        model_label=model_label,
-    )
+
     # 运行智能体请求
     result = await run_agent(
         agent=state.agent,
@@ -90,23 +81,35 @@ async def run_agent_invoke(
         api_key=api_key,
         session_redis=state.session_redis,
     )
+    messages_value = result.value["messages"]
     if is_message_all:
-        messages_value = result.value["messages"]
         messages = [agent_message_to_dict(item) for item in messages_value]
     else:
-        messages = [agent_message_to_dict(result.value["messages"][-1])]
+        messages = [agent_message_to_dict(messages_value[-1])]
 
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
         messages.append(interrupt_info)
-    else:
-        db_update_info = await message_execute.update_message(
+        db_insert_info = await message_execute.create_message(
             user_id=user_id,
             thread_id=thread_id,
             message_id=message_id,
+            message_type="api",
+            query=query,
+            model_label=model_label,
+        )
+    else:
+        db_insert_info = await message_execute.create_message(
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            message_type="api",
+            query=query,
+            model_label=model_label,
             answer=messages[-1].get("content"),
             model_name=messages[-1].get("response_metadata").get("model_name"),
-            model_norm=messages[-1].get("response_metadata").get("model_provider"),
+            model_norm=messages[-1].get(
+                "response_metadata").get("model_provider"),
         )
 
     agent_response = {
@@ -194,7 +197,8 @@ async def run_agent_interrupts_judge_invoke(
             message_id=message_id,
             answer=messages[-1].get("content"),
             model_name=messages[-1].get("response_metadata").get("model_name"),
-            model_norm=messages[-1].get("response_metadata").get("model_provider"),
+            model_norm=messages[-1].get(
+                "response_metadata").get("model_provider"),
         )
 
     agent_response = {
@@ -229,6 +233,7 @@ async def run_agent_stream(
     # 获取应用状态
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
+    message_execute = UserThreadMessageExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -252,6 +257,7 @@ async def run_agent_stream(
                 "message": is_exist.get("message")
             }, ensure_ascii=False, default=str) + "\n"
             return
+        ai_messages = []
         order_num = 0
         async for chunk in run_agent_astream(
             agent=state.agent,
@@ -268,6 +274,7 @@ async def run_agent_stream(
                 data_type = "agent"
                 message = "智能体消息"
                 data = agent_message_to_dict(chunk['model']['messages'][-1])
+                ai_messages.append(data)
             elif chunk.get("tools"):
                 data_type = "tool"
                 message = "工具消息"
@@ -299,6 +306,20 @@ async def run_agent_stream(
             "message": "流式输出结束",
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
+        if ai_messages:
+            db_insert_info = await message_execute.create_message(
+                user_id=user_id,
+                thread_id=thread_id,
+                message_id=message_id,
+                message_type="api",
+                query=query,
+                model_label=model_label,
+                answer=ai_messages[-1].get("content"),
+                model_name=ai_messages[-1].get(
+                    "response_metadata").get("model_name"),
+                model_norm=ai_messages[-1].get(
+                    "response_metadata").get("model_provider"),
+            )
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 
@@ -319,6 +340,7 @@ async def run_agent_interrupts_judge_stream(
     # 获取应用状态
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
+    message_execute = UserThreadMessageExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -331,7 +353,6 @@ async def run_agent_interrupts_judge_stream(
     )
 
     # 中断恢复流式运行智能体请求
-
     async def generate():
         if not is_exist.get("is_exist"):
             yield json.dumps({
@@ -345,6 +366,7 @@ async def run_agent_interrupts_judge_stream(
             return
 
         order_num = 0
+        ai_messages = []
         async for chunk in interrypts_judge_astream(
             agent=state.agent,
             user_id=user_id,
@@ -370,6 +392,7 @@ async def run_agent_interrupts_judge_stream(
                 data_type = "agent"
                 message = "智能体消息"
                 data = agent_message_to_dict(chunk['model']['messages'][-1])
+                ai_messages.append(data)
             elif chunk.get("tools"):
                 data_type = "tool"
                 message = "工具消息"
@@ -401,4 +424,15 @@ async def run_agent_interrupts_judge_stream(
             "message": "流式输出结束",
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
+        if ai_messages:
+            db_insert_info = await message_execute.update_message(
+                user_id=user_id,
+                thread_id=thread_id,
+                message_id=message_id,
+                answer=ai_messages[-1].get("content"),
+                model_name=ai_messages[-1].get(
+                    "response_metadata").get("model_name"),
+                model_norm=ai_messages[-1].get(
+                    "response_metadata").get("model_provider"),
+            )
     return StreamingResponse(generate(), media_type="application/x-ndjson")
