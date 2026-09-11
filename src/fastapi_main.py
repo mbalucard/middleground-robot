@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     session_redis = None
     db_server = None
     try:
-        session_redis = SessionRedis() 
+        session_redis = SessionRedis()
         app.state.session_redis = session_redis
         logger.info("FastAPI Session Redis 初始化完成")
 
@@ -70,6 +70,7 @@ app = FastAPI(
 app.include_router(agent_interactive_router)
 app.include_router(session_management_router)
 app.include_router(memory_management_router)
+
 
 @app.get("/")
 def read_root():
