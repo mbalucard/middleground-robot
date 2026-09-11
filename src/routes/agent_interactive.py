@@ -7,14 +7,17 @@ Agent交互路由
 import json
 from fastapi import APIRouter, HTTPException, Request, Header
 from fastapi.responses import StreamingResponse
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from utils.logger_manager import LoggerManager
 from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
-from utils.api_utils.data_processing import agent_message_to_dict
+from utils.api_utils.data_processing import agent_message_to_dict, tool_call_to_dict
 from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute, MessageToolCallsExecute
 from robot.tools.general_tool import new_id
 
 from robot.agents.agent_invoke import run_agent, interrypts_judge, run_agent_astream, interrypts_judge_astream
 from typing import Optional
+
+
 logger = LoggerManager.get_logger(name='agent_interactive')
 
 router = APIRouter(prefix='/agent', tags=['Agent'])
@@ -49,6 +52,7 @@ async def run_agent_invoke(
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
     message_execute = UserThreadMessageExecute(state.db_server)
+    tool_calls_execute = MessageToolCallsExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -82,10 +86,17 @@ async def run_agent_invoke(
         session_redis=state.session_redis,
     )
     messages_value = result.value["messages"]
+    # 获取本轮用户消息的起点
+    start = 0
+    for i in range(len(messages_value) - 1, -1, -1):
+        if isinstance(messages_value[i], HumanMessage):
+            start = i
+            break
+    current_turn = messages_value[start:]
     if is_message_all:
-        messages = [agent_message_to_dict(item) for item in messages_value]
+        messages = [agent_message_to_dict(item) for item in current_turn]
     else:
-        messages = [agent_message_to_dict(messages_value[-1])]
+        messages = [agent_message_to_dict(current_turn[-1])]
 
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
@@ -111,6 +122,19 @@ async def run_agent_invoke(
             model_norm=messages[-1].get(
                 "response_metadata").get("model_provider"),
         )
+
+    # 工具调用存表
+    tools_list, tool_calls_list = tool_call_to_dict(
+        current_turn, user_id, thread_id, message_id)
+    if tools_list:
+        await tool_calls_execute.create_message_tool_calls_incremental(
+            tool_calls=tools_list,
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            )
+    if tool_calls_list:
+        await tool_calls_execute.update_message_tool_calls(tool_calls_list)
 
     agent_response = {
         "success": True,
@@ -140,6 +164,7 @@ async def run_agent_interrupts_judge_invoke(
     # 获取应用状态
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
+    tool_calls_execute = MessageToolCallsExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -179,12 +204,19 @@ async def run_agent_interrupts_judge_invoke(
             "data_type": "error",
             "message": "中断恢复失败：无有效中断信息或决策参数不合法",
         }
+    messages_value = result.value["messages"]
+    # 获取本轮用户消息的起点
+    start = 0
+    for i in range(len(messages_value) - 1, -1, -1):
+        if isinstance(messages_value[i], HumanMessage):
+            start = i
+            break
+    current_turn = messages_value[start:]
 
     if is_message_all:
-        message_value = result.value["messages"]
-        messages = [agent_message_to_dict(item) for item in message_value]
+        messages = [agent_message_to_dict(item) for item in current_turn]
     else:
-        messages = [agent_message_to_dict(result.value["messages"][-1])]
+        messages = [agent_message_to_dict(current_turn[-1])]
 
     if result.interrupts:
         interrupt_info = agent_message_to_dict(result.interrupts[0])
@@ -209,6 +241,18 @@ async def run_agent_interrupts_judge_invoke(
         "data_type": "agent_message",
         "message": "成功获取智能体消息",
     }
+    # 工具调用存表
+    tools_list, tool_calls_list = tool_call_to_dict(
+        current_turn, user_id, thread_id, message_id)
+    if tools_list:
+        await tool_calls_execute.create_message_tool_calls_incremental(
+            tool_calls=tools_list,
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            )
+    if tool_calls_list:
+        await tool_calls_execute.update_message_tool_calls(tool_calls_list)
     return agent_response
 
 
@@ -283,11 +327,11 @@ async def run_agent_stream(
                 data = agent_message_to_dict(chunk['tools']['messages'][-1])
                 # 工具调用保存
                 tool_call_dict = {
-                    "user_id":user_id,
-                    "thread_id":thread_id,
-                    "message_id":message_id,
-                    "tool_call_id":data.get("tool_call_id"),
-                    "tool_output":json.dumps(data.get("content")) if not isinstance(data.get("content"),str) else data.get("content"),
+                    "user_id": user_id,
+                    "thread_id": thread_id,
+                    "message_id": message_id,
+                    "tool_call_id": data.get("tool_call_id"),
+                    "tool_output": json.dumps(data.get("content")) if not isinstance(data.get("content"), str) else data.get("content"),
                 }
                 tool_calls_list.append(tool_call_dict)
             elif chunk.get("__interrupt__"):
@@ -340,12 +384,12 @@ async def run_agent_stream(
                     tools_list = []
                     for tool_call in tool_calls:
                         tool_dict = {
-                            "user_id":user_id,
-                            "thread_id":thread_id,
-                            "message_id":message_id,
-                            "tool_call_id":tool_call.get("id"),
-                            "tool_name":tool_call.get("name"),
-                            "tool_input":json.dumps(tool_call.get("args")),
+                            "user_id": user_id,
+                            "thread_id": thread_id,
+                            "message_id": message_id,
+                            "tool_call_id": tool_call.get("id"),
+                            "tool_name": tool_call.get("name"),
+                            "tool_input": json.dumps(tool_call.get("args")),
                         }
                         tools_list.append(tool_dict)
                     await tool_calls_execute.create_message_tool_calls(tools_list)
@@ -432,11 +476,11 @@ async def run_agent_interrupts_judge_stream(
                 data = agent_message_to_dict(chunk['tools']['messages'][-1])
                 # 工具调用保存
                 tool_call_dict = {
-                    "user_id":user_id,
-                    "thread_id":thread_id,
-                    "message_id":message_id,
-                    "tool_call_id":data.get("tool_call_id"),
-                    "tool_output":json.dumps(data.get("content")) if not isinstance(data.get("content"),str) else data.get("content"),
+                    "user_id": user_id,
+                    "thread_id": thread_id,
+                    "message_id": message_id,
+                    "tool_call_id": data.get("tool_call_id"),
+                    "tool_output": json.dumps(data.get("content")) if not isinstance(data.get("content"), str) else data.get("content"),
                 }
                 tool_calls_list.append(tool_call_dict)
             elif chunk.get("__interrupt__"):
@@ -485,12 +529,12 @@ async def run_agent_interrupts_judge_stream(
                     tools_list = []
                     for tool_call in tool_calls:
                         tool_dict = {
-                            "user_id":user_id,
-                            "thread_id":thread_id,
-                            "message_id":message_id,
-                            "tool_call_id":tool_call.get("id"),
-                            "tool_name":tool_call.get("name"),
-                            "tool_input":json.dumps(tool_call.get("args")),
+                            "user_id": user_id,
+                            "thread_id": thread_id,
+                            "message_id": message_id,
+                            "tool_call_id": tool_call.get("id"),
+                            "tool_name": tool_call.get("name"),
+                            "tool_input": json.dumps(tool_call.get("args")),
                         }
                         tools_list.append(tool_dict)
                     await tool_calls_execute.create_message_tool_calls(tools_list)

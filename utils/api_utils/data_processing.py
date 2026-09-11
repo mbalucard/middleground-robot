@@ -4,6 +4,7 @@
     - agent_message_to_dict 将Agent消息转换为字典
 """
 from typing import Union
+import json
 from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
 from langgraph.types import Interrupt
 from utils.logger_manager import LoggerManager
@@ -66,6 +67,49 @@ def agent_message_to_dict(message: AgentMessageType) -> dict:
         data_dict = {}
         logger.warning(f"未知消息类型: {type(message)}")
     return data_dict
+
+
+def tool_call_to_dict(
+        agent_call_list: list[AgentMessageType],
+        user_id: str,
+        thread_id: str,
+        message_id: str) -> tuple[list[dict], list[dict]]:
+    """
+    将Agent消息的工具调用转换为字典
+    Args:
+        agent_call_list: Agent消息
+        user_id: 用户ID
+        thread_id: 线程ID
+        message_id: 消息ID
+    Returns:
+        tuple[list[dict], list[dict]]: 工具调用列表和工具调用更新列表
+    """
+    tools_list = []
+    tool_calls_list = []
+    for item in agent_call_list:
+        if isinstance(item, AIMessage):
+            tools = item.tool_calls
+            if tools:
+                for tool in tools:
+                    tool_dict = {
+                        "user_id": user_id,
+                        "thread_id": thread_id,
+                        "message_id": message_id,
+                        "tool_call_id": tool.get("id"),
+                        "tool_name": tool.get("name"),
+                        "tool_input": json.dumps(tool.get("args")),
+                    }
+                    tools_list.append(tool_dict)
+        elif isinstance(item, ToolMessage):
+            tool_dict = {
+                "user_id": user_id,
+                "thread_id": thread_id,
+                "message_id": message_id,
+                "tool_call_id": item.tool_call_id,
+                "tool_output": json.dumps(item.content) if not isinstance(item.content, str) else item.content,
+            }
+            tool_calls_list.append(tool_dict)
+    return tools_list, tool_calls_list
 
 
 if __name__ == "__main__":

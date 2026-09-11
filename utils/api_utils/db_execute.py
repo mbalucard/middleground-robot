@@ -393,6 +393,71 @@ class MessageToolCallsExecute:
             raise HTTPException(
                 status_code=500, detail=f"查询用户会话消息工具调用失败: {str(e)}")
 
+    async def create_message_tool_calls_incremental(
+            self,
+            tool_calls: list[dict],
+            user_id: str,
+            thread_id: str,
+            message_id: str,):
+        """
+        创建用户会话消息工具调用增量
+        Args:
+            tool_calls: 工具调用列表
+            user_id: 用户id
+            thread_id: 会话线程id
+            message_id: 消息id
+        Returns:
+            int: 创建的行数
+        """
+        if not tool_calls:
+            return 0
+        existing_tool_calls = await self.select_message_tool_calls(
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+        )
+        existing_ids = {row["tool_call_id"]
+                        for row in (existing_tool_calls or [])}
+        new_tools = [
+            t for t in tool_calls
+            if t.get("tool_call_id") not in existing_ids
+        ]
+        if not new_tools:
+            return 0
+        return await self.create_message_tool_calls(new_tools)
+
+    async def delete_message_tool_calls(self, user_id: str, **kwargs):
+        """
+        删除用户会话消息工具调用
+        Args:
+            *args: 查询条件
+            **kwargs: 查询参数
+        Returns:
+            int: 删除的行数
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                stmt = (
+                    select(MessageToolCalls)
+                    .where(
+                        MessageToolCalls.user_id == user_id,
+                    )
+                )
+                if kwargs:
+                    stmt = stmt.filter_by(**kwargs)
+                result = await db_session.execute(stmt)
+                rows = result.scalars().all()
+                if not rows:
+                    return 0
+                for row in rows:
+                    await db_session.delete(row)
+                await db_session.commit()
+                return len(rows)
+        except Exception as e:
+            logger.error(f"删除用户会话消息工具调用失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"删除用户会话消息工具调用失败: {str(e)}")
+
 
 if __name__ == "__main__":
     import asyncio
