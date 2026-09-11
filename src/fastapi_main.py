@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     session_redis = None
     db_server = None
     try:
-        session_redis = SessionRedis()
+        session_redis = SessionRedis() 
         app.state.session_redis = session_redis
         logger.info("FastAPI Session Redis 初始化完成")
 

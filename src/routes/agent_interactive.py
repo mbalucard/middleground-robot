@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from utils.logger_manager import LoggerManager
 from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
 from utils.api_utils.data_processing import agent_message_to_dict
-from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute
+from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute, MessageToolCallsExecute
 from robot.tools.general_tool import new_id
 
 from robot.agents.agent_invoke import run_agent, interrypts_judge, run_agent_astream, interrypts_judge_astream
@@ -234,6 +234,7 @@ async def run_agent_stream(
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
     message_execute = UserThreadMessageExecute(state.db_server)
+    tool_calls_execute = MessageToolCallsExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -258,6 +259,7 @@ async def run_agent_stream(
             }, ensure_ascii=False, default=str) + "\n"
             return
         ai_messages = []
+        tool_calls_list = []
         order_num = 0
         async for chunk in run_agent_astream(
             agent=state.agent,
@@ -279,6 +281,15 @@ async def run_agent_stream(
                 data_type = "tool"
                 message = "工具消息"
                 data = agent_message_to_dict(chunk['tools']['messages'][-1])
+                # 工具调用保存
+                tool_call_dict = {
+                    "user_id":user_id,
+                    "thread_id":thread_id,
+                    "message_id":message_id,
+                    "tool_call_id":data.get("tool_call_id"),
+                    "tool_output":json.dumps(data.get("content")) if not isinstance(data.get("content"),str) else data.get("content"),
+                }
+                tool_calls_list.append(tool_call_dict)
             elif chunk.get("__interrupt__"):
                 data_type = "interrupt"
                 message = "中断消息"
@@ -306,7 +317,9 @@ async def run_agent_stream(
             "message": "流式输出结束",
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
+        #! 有问题，如果AI回复完以后，又去调用工具，再回复了一回，就只会存储到最后一回的数据
         if ai_messages:
+            # 消息存表
             db_insert_info = await message_execute.create_message(
                 user_id=user_id,
                 thread_id=thread_id,
@@ -320,7 +333,25 @@ async def run_agent_stream(
                 model_norm=ai_messages[-1].get(
                     "response_metadata").get("model_provider"),
             )
-
+            # 工具调用存表
+            for message in ai_messages:
+                tool_calls = message.get("tool_calls")
+                if tool_calls:
+                    tools_list = []
+                    for tool_call in tool_calls:
+                        tool_dict = {
+                            "user_id":user_id,
+                            "thread_id":thread_id,
+                            "message_id":message_id,
+                            "tool_call_id":tool_call.get("id"),
+                            "tool_name":tool_call.get("name"),
+                            "tool_input":json.dumps(tool_call.get("args")),
+                        }
+                        tools_list.append(tool_dict)
+                    await tool_calls_execute.create_message_tool_calls(tools_list)
+            # 工具调用更新
+            if tool_calls_list:
+                await tool_calls_execute.update_message_tool_calls(tool_calls_list)
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
@@ -341,6 +372,7 @@ async def run_agent_interrupts_judge_stream(
     state = app_request.app.state
     user_thread_execute = UserThreadExecute(state.db_server)
     message_execute = UserThreadMessageExecute(state.db_server)
+    tool_calls_execute = MessageToolCallsExecute(state.db_server)
     agent_args = {
         "user_id": user_id,
         "thread_id": thread_id,
@@ -367,6 +399,7 @@ async def run_agent_interrupts_judge_stream(
 
         order_num = 0
         ai_messages = []
+        tool_calls_list = []
         async for chunk in interrypts_judge_astream(
             agent=state.agent,
             user_id=user_id,
@@ -397,6 +430,15 @@ async def run_agent_interrupts_judge_stream(
                 data_type = "tool"
                 message = "工具消息"
                 data = agent_message_to_dict(chunk['tools']['messages'][-1])
+                # 工具调用保存
+                tool_call_dict = {
+                    "user_id":user_id,
+                    "thread_id":thread_id,
+                    "message_id":message_id,
+                    "tool_call_id":data.get("tool_call_id"),
+                    "tool_output":json.dumps(data.get("content")) if not isinstance(data.get("content"),str) else data.get("content"),
+                }
+                tool_calls_list.append(tool_call_dict)
             elif chunk.get("__interrupt__"):
                 data_type = "interrupt"
                 message = "中断消息"
@@ -425,6 +467,7 @@ async def run_agent_interrupts_judge_stream(
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
         if ai_messages:
+            # 消息存表
             db_insert_info = await message_execute.update_message(
                 user_id=user_id,
                 thread_id=thread_id,
@@ -435,4 +478,23 @@ async def run_agent_interrupts_judge_stream(
                 model_norm=ai_messages[-1].get(
                     "response_metadata").get("model_provider"),
             )
+            # 工具调用存表
+            for message in ai_messages:
+                tool_calls = message.get("tool_calls")
+                if tool_calls:
+                    tools_list = []
+                    for tool_call in tool_calls:
+                        tool_dict = {
+                            "user_id":user_id,
+                            "thread_id":thread_id,
+                            "message_id":message_id,
+                            "tool_call_id":tool_call.get("id"),
+                            "tool_name":tool_call.get("name"),
+                            "tool_input":json.dumps(tool_call.get("args")),
+                        }
+                        tools_list.append(tool_dict)
+                    await tool_calls_execute.create_message_tool_calls(tools_list)
+            # 工具调用更新
+            if tool_calls_list:
+                await tool_calls_execute.update_message_tool_calls(tool_calls_list)
     return StreamingResponse(generate(), media_type="application/x-ndjson")

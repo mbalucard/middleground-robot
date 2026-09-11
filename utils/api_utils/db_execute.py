@@ -1,18 +1,19 @@
 """
 数据库执行工具
     - UserThreadExecute: 用户会话线程执行工具
+    - UserThreadMessageExecute: 用户会话消息执行工具
 """
 
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select, update, bindparam
 from sqlalchemy.orm import selectinload
-from utils.api_utils.db_models import UserThread, UserThreadMessage
+from utils.api_utils.db_models import UserThread, UserThreadMessage, MessageToolCalls
 from utils.date_time import get_current_datetime
 from utils.db_link import PostgresServer
 from utils.logger_manager import LoggerManager
 
-logger = LoggerManager.get_logger(name='user_thread_execute')
+logger = LoggerManager.get_logger(name='db_execute')
 
 
 class UserThreadExecute:
@@ -295,6 +296,102 @@ class UserThreadMessageExecute:
             logger.error(f"更新用户会话消息失败: {str(e)}")
             raise HTTPException(
                 status_code=500, detail=f"更新用户会话消息失败: {str(e)}")
+
+
+class MessageToolCallsExecute:
+    """
+    用户会话消息工具调用执行工具
+    """
+
+    def __init__(self, db_server: PostgresServer):
+        self.db_server = db_server
+
+    async def create_message_tool_calls(self, tool_calls: list[dict]):
+        """
+        创建用户会话消息工具调用
+        Args:
+            tool_calls: 工具调用列表
+        Returns:
+            int: 创建的行数
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                mes_tool_calls = [MessageToolCalls(
+                    **tool_call) for tool_call in tool_calls]
+                db_session.add_all(mes_tool_calls)
+                await db_session.commit()
+                return len(mes_tool_calls)
+        except Exception as e:
+            logger.error(f"创建用户会话消息工具调用失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"创建用户会话消息工具调用失败: {str(e)}")
+
+    async def update_message_tool_calls(self, tool_calls: list[dict]):
+        """
+        更新用户会话消息工具调用
+        Args:
+            tool_calls: 工具调用列表
+        Returns:
+            int: 创建的行数
+        """
+        if not tool_calls:
+            return 0
+        try:
+            now = get_current_datetime()
+            params = [{**item, "update_time": now} for item in tool_calls]
+            stmt = (update(MessageToolCalls).where(
+                MessageToolCalls.user_id == bindparam("b_user_id"),
+                MessageToolCalls.thread_id == bindparam("b_thread_id"),
+                MessageToolCalls.message_id == bindparam("b_message_id"),
+                MessageToolCalls.tool_call_id == bindparam("b_tool_call_id"),
+            ).values(
+                tool_output=bindparam("tool_output"),
+                update_time=bindparam("update_time"),
+            )
+            )
+            exec_params = [{
+                "b_user_id": p["user_id"],
+                "b_thread_id": p["thread_id"],
+                "b_message_id": p["message_id"],
+                "b_tool_call_id": p["tool_call_id"],
+                "tool_output": p["tool_output"],
+                "update_time": p["update_time"],
+            } for p in params]
+            async with self.db_server.get_db_session() as db_session:
+                conn = await db_session.connection()
+                result = await conn.execute(stmt, exec_params)
+                await db_session.commit()
+                return result.rowcount
+        except Exception as e:
+            logger.error(f"更新用户会话消息工具调用失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"更新用户会话消息工具调用失败: {str(e)}")
+
+    async def select_message_tool_calls(self, *args, **kwargs):
+        """
+        查询用户会话消息工具调用
+        Args:
+            *args: 查询条件
+            **kwargs: 查询参数
+        Returns:
+            list: 用户会话消息工具调用数据
+        """
+        try:
+            async with self.db_server.get_db_session() as db_session:
+                stmt = select(MessageToolCalls)
+                if args:
+                    stmt = stmt.where(*args)
+                if kwargs:
+                    stmt = stmt.filter_by(**kwargs)
+                result = await db_session.execute(stmt)
+                rows = result.scalars().all()
+                if rows:
+                    rows = [row.to_dict() for row in rows]
+                return rows
+        except Exception as e:
+            logger.error(f"查询用户会话消息工具调用失败: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"查询用户会话消息工具调用失败: {str(e)}")
 
 
 if __name__ == "__main__":
