@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from utils.logger_manager import LoggerManager
 from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
-from utils.api_utils.api_background_tasks import run_agent_background_task
+from utils.api_utils.api_background_tasks import agent_storage_background_task, agent_storage_stream_background_task
 from utils.api_utils.data_processing import agent_message_to_dict, tool_call_to_dict
 from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute, MessageToolCallsExecute
 from robot.tools.general_tool import new_id
@@ -116,7 +116,7 @@ async def run_agent_invoke(
     }
     # 后台任务存表
     background_tasks.add_task(
-        run_agent_background_task,
+        agent_storage_background_task,
         message_execute=message_execute,
         tool_calls_execute=tool_calls_execute,
         user_id=user_id,
@@ -221,7 +221,7 @@ async def run_agent_interrupts_judge_invoke(
     }
     # 后台任务存表
     background_tasks.add_task(
-        run_agent_background_task,
+        agent_storage_background_task,
         message_execute=message_execute,
         tool_calls_execute=tool_calls_execute,
         user_id=user_id,
@@ -239,6 +239,7 @@ async def run_agent_interrupts_judge_invoke(
 async def run_agent_stream(
         request: RunAgentRequest,
         app_request: Request,
+        background_tasks: BackgroundTasks,
         authorization: Optional[str] = Header(None),):
     """
     流式运行智能体请求
@@ -340,41 +341,20 @@ async def run_agent_stream(
             "message": "流式输出结束",
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
-        #! 有问题，如果AI回复完以后，又去调用工具，再回复了一回，就只会存储到最后一回的数据
-        if ai_messages:
-            # 消息存表
-            db_insert_info = await message_execute.create_message(
-                user_id=user_id,
-                thread_id=thread_id,
-                message_id=message_id,
-                message_type="api",
-                query=query,
-                model_label=model_label,
-                answer=ai_messages[-1].get("content"),
-                model_name=ai_messages[-1].get(
-                    "response_metadata").get("model_name"),
-                model_norm=ai_messages[-1].get(
-                    "response_metadata").get("model_provider"),
-            )
-            # 工具调用存表
-            for message in ai_messages:
-                tool_calls = message.get("tool_calls")
-                if tool_calls:
-                    tools_list = []
-                    for tool_call in tool_calls:
-                        tool_dict = {
-                            "user_id": user_id,
-                            "thread_id": thread_id,
-                            "message_id": message_id,
-                            "tool_call_id": tool_call.get("id"),
-                            "tool_name": tool_call.get("name"),
-                            "tool_input": json.dumps(tool_call.get("args")),
-                        }
-                        tools_list.append(tool_dict)
-                    await tool_calls_execute.create_message_tool_calls(tools_list)
-            # 工具调用更新
-            if tool_calls_list:
-                await tool_calls_execute.update_message_tool_calls(tool_calls_list)
+
+        background_tasks.add_task(
+            agent_storage_stream_background_task,
+            message_execute=message_execute,
+            tool_calls_execute=tool_calls_execute,
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            query=query,
+            model_label=model_label,
+            messages=ai_messages,
+            tool_calls_list=tool_calls_list,
+            is_interrupt=False,
+        )
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
@@ -382,6 +362,7 @@ async def run_agent_stream(
 async def run_agent_interrupts_judge_stream(
     request: RunAgentInterruptsJudgeRequest,
     app_request: Request,
+    background_tasks: BackgroundTasks,
 ):
     """
     中断恢复流式运行智能体请求
@@ -489,35 +470,15 @@ async def run_agent_interrupts_judge_stream(
             "message": "流式输出结束",
         }
         yield json.dumps(end_response, ensure_ascii=False, default=str) + "\n"
-        if ai_messages:
-            # 消息存表
-            db_insert_info = await message_execute.update_message(
-                user_id=user_id,
-                thread_id=thread_id,
-                message_id=message_id,
-                answer=ai_messages[-1].get("content"),
-                model_name=ai_messages[-1].get(
-                    "response_metadata").get("model_name"),
-                model_norm=ai_messages[-1].get(
-                    "response_metadata").get("model_provider"),
-            )
-            # 工具调用存表
-            for message in ai_messages:
-                tool_calls = message.get("tool_calls")
-                if tool_calls:
-                    tools_list = []
-                    for tool_call in tool_calls:
-                        tool_dict = {
-                            "user_id": user_id,
-                            "thread_id": thread_id,
-                            "message_id": message_id,
-                            "tool_call_id": tool_call.get("id"),
-                            "tool_name": tool_call.get("name"),
-                            "tool_input": json.dumps(tool_call.get("args")),
-                        }
-                        tools_list.append(tool_dict)
-                    await tool_calls_execute.create_message_tool_calls(tools_list)
-            # 工具调用更新
-            if tool_calls_list:
-                await tool_calls_execute.update_message_tool_calls(tool_calls_list)
+        background_tasks.add_task(
+            agent_storage_stream_background_task,
+            message_execute=message_execute,
+            tool_calls_execute=tool_calls_execute,
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            messages=ai_messages,
+            tool_calls_list=tool_calls_list,
+            is_interrupt=True,
+        )
     return StreamingResponse(generate(), media_type="application/x-ndjson")

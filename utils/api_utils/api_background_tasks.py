@@ -2,6 +2,7 @@
 API后台任务
     - run_agent_background_task: 运行智能体后台任务存表
 """
+import json
 from utils.api_utils.data_processing import AgentMessageType, tool_call_to_dict
 from utils.logger_manager import LoggerManager
 from fastapi import HTTPException
@@ -10,7 +11,7 @@ from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecu
 logger = LoggerManager.get_logger("api_background_tasks")
 
 
-async def run_agent_background_task(
+async def agent_storage_background_task(
         message_execute: UserThreadMessageExecute,
         tool_calls_execute: MessageToolCallsExecute,
         *,
@@ -91,3 +92,58 @@ async def run_agent_background_task(
             await tool_calls_execute.update_message_tool_calls(tool_calls_list)
     except Exception as e:
         logger.exception(f"run_agent落库失败,message_id: {message_id}, {str(e)}")
+
+
+async def agent_storage_stream_background_task(
+        message_execute: UserThreadMessageExecute,
+        tool_calls_execute: MessageToolCallsExecute,
+        *,
+        user_id: str,
+        thread_id: str,
+        message_id: str,
+        query: str = '',
+        model_label: str = '',
+        messages: list[dict] = [],
+        tool_calls_list: list[dict] = [],
+        is_interrupt=False,
+):
+    if messages:
+        #! 有问题，如果AI回复完以后，又去调用工具，再回复了一回，就只会存储到最后一回的数据
+        meta = messages[-1].get("response_metadata") or {}
+        if not is_interrupt:
+            await message_execute.create_message(
+                user_id=user_id,
+                thread_id=thread_id,
+                message_id=message_id,
+                message_type="api",
+                query=query,
+                model_label=model_label,
+                answer=messages[-1].get("content"),
+                model_name=meta.get("model_name"),
+                model_norm=meta.get("model_provider"),
+            )
+        else:
+            await message_execute.update_message(
+                user_id=user_id,
+                thread_id=thread_id,
+                message_id=message_id,
+                answer=messages[-1].get("content"),
+                model_name=meta.get("model_name"),
+                model_norm=meta.get("model_provider"),
+            )
+        for message in messages:
+            tool_calls = message.get("tool_calls")
+            if tool_calls:
+                tools_list = []
+                for tool_call in tool_calls:
+                    tools_list.append({
+                        "user_id": user_id,
+                        "thread_id": thread_id,
+                        "message_id": message_id,
+                        "tool_call_id": tool_call.get("id"),
+                        "tool_name": tool_call.get("name"),
+                        "tool_input": json.dumps(tool_call.get("args")),
+                    })
+                await tool_calls_execute.create_message_tool_calls(tools_list)
+        if tool_calls_list:
+            await tool_calls_execute.update_message_tool_calls(tool_calls_list)
