@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from utils.logger_manager import LoggerManager
 from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJudgeRequest
 from utils.api_utils.api_background_tasks import agent_storage_background_task, agent_storage_stream_background_task
-from utils.api_utils.data_processing import agent_message_to_dict, tool_call_to_dict
+from utils.api_utils.data_processing import agent_message_to_dict
 from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute, MessageToolCallsExecute
 from robot.tools.general_tool import new_id
 

@@ -1,12 +1,12 @@
 """
 API后台任务
     - run_agent_background_task: 运行智能体后台任务存表
+    - run_agent_stream_background_task: 流式运行智能体后台任务存表
 """
 import json
 from utils.api_utils.data_processing import AgentMessageType, tool_call_to_dict
 from utils.logger_manager import LoggerManager
-from fastapi import HTTPException
-from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute, MessageToolCallsExecute
+from utils.api_utils.db_execute import UserThreadMessageExecute, MessageToolCallsExecute
 
 logger = LoggerManager.get_logger("api_background_tasks")
 
@@ -23,8 +23,7 @@ async def agent_storage_background_task(
         is_interrupt: bool = False,
         run_interrupt_task: bool = False,
         query: str = '',
-        model_label: str = '',
-):
+        model_label: str = '',):
     """
     运行智能体后台任务存表 覆盖静态任务和中断恢复任务
     Args:
@@ -105,8 +104,7 @@ async def agent_storage_stream_background_task(
         model_label: str = '',
         messages: list[dict] = [],
         tool_calls_list: list[dict] = [],
-        is_interrupt=False,
-):
+        is_interrupt=False,):
     if messages:
         #! 有问题，如果AI回复完以后，又去调用工具，再回复了一回，就只会存储到最后一回的数据
         meta = messages[-1].get("response_metadata") or {}

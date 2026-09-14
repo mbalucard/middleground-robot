@@ -2,6 +2,7 @@
 数据库执行工具
     - UserThreadExecute: 用户会话线程执行工具
     - UserThreadMessageExecute: 用户会话消息执行工具
+    - MessageToolCallsExecute: 用户会话消息工具调用执行工具
 """
 
 
@@ -116,6 +117,7 @@ class UserThreadExecute:
                     stmt = stmt.where(*args)
                 if kwargs:
                     stmt = stmt.filter_by(**kwargs)
+                stmt = stmt.order_by(UserThread.create_time.desc())
                 result = await db_session.execute(stmt)
                 rows = result.scalars().all()
                 if rows:
@@ -216,6 +218,7 @@ class UserThreadMessageExecute:
                     stmt = stmt.where(*args)
                 if kwargs:
                     stmt = stmt.filter_by(**kwargs)
+                stmt = stmt.order_by(UserThreadMessage.create_time.desc())
                 result = await db_session.execute(stmt)
                 rows = result.scalars().all()
                 if rows:
@@ -383,6 +386,7 @@ class MessageToolCallsExecute:
                     stmt = stmt.where(*args)
                 if kwargs:
                     stmt = stmt.filter_by(**kwargs)
+                stmt = stmt.order_by(MessageToolCalls.create_time.desc())
                 result = await db_session.execute(stmt)
                 rows = result.scalars().all()
                 if rows:

@@ -68,12 +68,14 @@ async def user_thread_list(
         response = {
             "success": True,
             "data": new_data,
+            "total": len(new_data),
             "message": "成功获取用户会话线程列表",
         }
     else:
         response = {
             "success": False,
             "data": [],
+            "total": 0,
             "message": "未找到用户会话线程",
         }
     return response
