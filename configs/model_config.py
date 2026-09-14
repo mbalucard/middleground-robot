@@ -10,6 +10,7 @@ import dotenv
 
 dotenv.load_dotenv()
 
+
 def _read_env(name: str) -> str:
     """读取并清洗环境变量，缺失时抛出明确错误。"""
     value = os.getenv(name)
@@ -31,17 +32,26 @@ class DeepSeekModelConfig:
     MODEL_NAME = "deepseek-v4-flash"
     MODEL_NAME_VISION = "deepseek-v4-flash-vision-exp"
 
+
 class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")
     API_KEY = _read_env("MINIMAX_KEY")
     MODEL_NAME = "anthropic:MiniMax-M2.7"
     MODEL_NAME_M3 = "anthropic:MiniMax-M3"
 
+
+class DashScopeEmbeddingModelConfig:
+    BASE_URL = f'https://{_read_env("DASHSCOPE_WORKSPACE_ID")}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
+    API_KEY = _read_env("DASHSCOPE_API_KEY")
+    MODEL_NAME = "qwen3.7-text-embedding"
+    DIMENSIONS = 1024  # 可选：2560、2048、1536、1024（默认）、768、512、256
+
+
 class Tavily:
     API_KEY = _read_env("TAVILY_API_KEY")
+
 
 if __name__ == "__main__":
     print(DeepSeekModelConfig.BASE_URL_OPENAI)
     print(DeepSeekModelConfig.BASE_URL_ANTHROPIC)
     print(MiniMaxModelConfig.BASE_URL_ANTHROPIC)
-    

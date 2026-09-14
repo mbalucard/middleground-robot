@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-
+from robot.agents.models import qwen_embedding_model
+from configs.model_config import DashScopeEmbeddingModelConfig
 from configs.service_config import ConfigPostgres
 
 
@@ -37,7 +38,14 @@ async def postgres_resources() -> AsyncIterator[PostgresResources]:
     await pool.open()
     try:
         checkpointer = AsyncPostgresSaver(pool)
-        store = AsyncPostgresStore(pool)
+        store = AsyncPostgresStore(
+            pool,
+            index={
+                "dims": DashScopeEmbeddingModelConfig.DIMENSIONS,
+                "embed": qwen_embedding_model,
+                "fields": ["$"],  # 指定要嵌入的字段
+            }
+            )
         await checkpointer.setup()
         await store.setup()
         yield PostgresResources(pool=pool, checkpointer=checkpointer, store=store)
