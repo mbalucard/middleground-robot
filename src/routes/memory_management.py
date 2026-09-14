@@ -12,7 +12,6 @@ from utils.logger_manager import LoggerManager
 from utils.api_utils.data_processing import format_long_term_info_key, agent_message_to_dict
 from utils.api_utils.request_models import LongTermInfoRequest, UserThreadRequest
 from utils.api_utils.memory_service import get_memory_service, get_short_term_memory_service
-from utils.api_utils.db_execute import UserThreadExecute
 
 logger = LoggerManager.get_logger(name='memory_management')
 
