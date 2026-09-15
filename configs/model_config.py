@@ -1,7 +1,9 @@
 """
 模型配置
     - MiniMax模型配置: MiniMaxModelConfig
+    - AIHubMix_MiniMax_M27模型配置: AIHubMixModelConfig
     - DeepSeek模型配置: DeepSeekModelConfig
+    - DashScope Embedding模型配置: DashScopeEmbeddingModelConfig
     - Tavily模型配置: Tavily
 """
 
@@ -36,8 +38,16 @@ class DeepSeekModelConfig:
 class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")
     API_KEY = _read_env("MINIMAX_KEY")
-    MODEL_NAME = "anthropic:MiniMax-M2.7"
-    MODEL_NAME_M3 = "anthropic:MiniMax-M3"
+    MODEL_NAME_M27 = "MiniMax-M2.7"
+    MODEL_NAME_M3 = "MiniMax-M3"
+
+
+class AIHubMixModelConfig:
+    BASE_URL = _read_env("AIHUBMIX_BASE_URL")
+    API_KEY = _read_env("AIHUBMIX_API_KEY")
+    MINIMAX_MODEL_M27 = "minimax-m2.7"
+    MINIMAX_MODEL_M3 = "minimax-m3"
+
 
 
 class DashScopeEmbeddingModelConfig:

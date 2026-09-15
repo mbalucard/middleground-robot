@@ -2,14 +2,18 @@
 Agent模型
     - deepseek_model
     - deepseek_model_vision
-    - minimax_model
+    - minimax_model_M27
     - minimax_model_M3
+    - qwen_embedding_model
+    - aihubmix_minimax_m27
+    - aihubmix_minimax_m3
 """
 
 from langchain.chat_models import init_chat_model
 from langchain_openai import OpenAIEmbeddings
 
-from configs.model_config import DeepSeekModelConfig, MiniMaxModelConfig, DashScopeEmbeddingModelConfig
+from configs.model_config import (
+    DeepSeekModelConfig, MiniMaxModelConfig, DashScopeEmbeddingModelConfig, AIHubMixModelConfig)
 
 
 deepseek_model = init_chat_model(
@@ -34,16 +38,18 @@ deepseek_model_vision = init_chat_model(
 )
 
 
-minimax_model = init_chat_model(
-    model=MiniMaxModelConfig.MODEL_NAME,
+minimax_model_M27 = init_chat_model(
+    model=MiniMaxModelConfig.MODEL_NAME_M27,
     api_key=MiniMaxModelConfig.API_KEY,
     base_url=MiniMaxModelConfig.BASE_URL_ANTHROPIC,
+    model_provider="anthropic",
 )
 
 minimax_model_M3 = init_chat_model(
     model=MiniMaxModelConfig.MODEL_NAME_M3,
     api_key=MiniMaxModelConfig.API_KEY,
     base_url=MiniMaxModelConfig.BASE_URL_ANTHROPIC,
+    model_provider="anthropic",
     # max_tokens=10000,
 )
 
@@ -55,9 +61,24 @@ qwen_embedding_model = OpenAIEmbeddings(
     check_embedding_ctx_length=False,
 )
 
+aihubmix_minimax_m27 = init_chat_model(
+    model=AIHubMixModelConfig.MINIMAX_MODEL_M27,
+    api_key=AIHubMixModelConfig.API_KEY,
+    base_url=AIHubMixModelConfig.BASE_URL,
+    model_provider="anthropic",
+)
+
+aihubmix_minimax_m3 = init_chat_model(
+    model=AIHubMixModelConfig.MINIMAX_MODEL_M3,
+    api_key=AIHubMixModelConfig.API_KEY,
+    base_url=AIHubMixModelConfig.BASE_URL,
+    model_provider="anthropic",
+)
+
 
 if __name__ == "__main__":
     print(deepseek_model.model_dump())
-    print(minimax_model.model_dump())
+    print(minimax_model_M27.model_dump())
     print(minimax_model_M3.model_dump())
     print(deepseek_model_vision.model_dump())
+    print(aihubmix_minimax_m27.model_dump())

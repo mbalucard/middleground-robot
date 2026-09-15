@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+from robot.agents.model_context import ModelLabel
 from robot.tools.session_redis import SessionRedis
 from robot.tools.interrupt_handling import handle_interrupt_info
 from robot.agents.model_context import Context, invoke_config
@@ -18,8 +19,7 @@ from utils.date_time import timestamp
 
 logger = LoggerManager.get_logger(name="agent_invoke")
 
-# 可选模型名称
-ModelLabel = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
+
 AllowedDecisions = Literal['approve', 'edit', 'reject', 'respond']
 
 
@@ -41,7 +41,7 @@ async def run_agent(
         user_id(str): 用户ID, default="1001"
         message_id(str): 消息ID, default=None
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax / minimax_m3 / deepseek_vision
+            - deepseek / minimax_m27 / minimax_m3 / deepseek_vision / aihubmix_minimax_m27
         api_key(str): 通行密匙 default=None
         session_redis(Optional[SessionRedis]): 会话Redis default=None
     Returns:
@@ -77,19 +77,19 @@ async def run_agent(
                 "_t": timestamp(),
                 "type": "interrupt"
             }
-            await session_redis.set_session(user_id=user_id, thread_id=thread_id,message_id=message_id, data=interrupt_info)
+            await session_redis.set_session(user_id=user_id, thread_id=thread_id, message_id=message_id, data=interrupt_info)
 
     return result
 
 
 async def interrypts_judge(
-    agent: CompiledStateGraph,
-    user_id: str,
-    thread_id: str,
-    session_redis: SessionRedis,
-    decides: List[AllowedDecisions],
-    message_id: str = '',
-    is_all_decides: bool = False,):
+        agent: CompiledStateGraph,
+        user_id: str,
+        thread_id: str,
+        session_redis: SessionRedis,
+        decides: List[AllowedDecisions],
+        message_id: str = '',
+        is_all_decides: bool = False,):
     """
     AI中断后,人工判断是否继续执行
     Args:
@@ -104,25 +104,29 @@ async def interrypts_judge(
         Optional[Result]: 决策结果,如果中断信息为空,则返回None
     """
     # 获取中断信息
-    interrupt_info = await session_redis.get_session(user_id=user_id, thread_id=thread_id,message_id=message_id)
+    interrupt_info = await session_redis.get_session(user_id=user_id, thread_id=thread_id, message_id=message_id)
     if not interrupt_info:
-        logger.warning(f"当前用户会话不存在中断或已过期: user_id={user_id}, thread_id={thread_id}")
+        logger.warning(
+            f"当前用户会话不存在中断或已过期: user_id={user_id}, thread_id={thread_id}")
         return None
     # 构建决策列表
     decisions = []
     if not is_all_decides:
         if len(decides) != len(interrupt_info.get('interrupt_list', [])):
-            logger.warning(f"决策列表长度与中断信息长度不一致: decides={len(decides)}, interrupt_list={len(interrupt_info.get('interrupt_list', []))}")
+            logger.warning(
+                f"决策列表长度与中断信息长度不一致: decides={len(decides)}, interrupt_list={len(interrupt_info.get('interrupt_list', []))}")
             return None
         for i in range(len(decides)):
             decide = {"type": decides[i]}
             decisions.append(decide)
     else:
         if len(decides) != 1:
-            logger.warning(f"is_all_decides为True时,决策列表长度必须为1,当前长度为{len(decides)}")
+            logger.warning(
+                f"is_all_decides为True时,决策列表长度必须为1,当前长度为{len(decides)}")
             return None
         if decides[0] not in ['approve', 'reject']:
-            logger.warning(f"is_all_decides为True时,决策列表仅支持'approve'或'reject',当前元素为{decides[0]}")
+            logger.warning(
+                f"is_all_decides为True时,决策列表仅支持'approve'或'reject',当前元素为{decides[0]}")
             return None
         for i in range(len(interrupt_info.get('interrupt_list', []))):
             decide = {"type": decides[0]}
@@ -138,7 +142,7 @@ async def interrypts_judge(
         thread_id=interrupt_info.get('thread_id'),
         user_id=interrupt_info.get('user_id')
     )
-    await session_redis.delete_session(user_id=user_id, thread_id=thread_id,message_id=message_id)
+    await session_redis.delete_session(user_id=user_id, thread_id=thread_id, message_id=message_id)
     # 运行智能体
     try:
         result = await agent.ainvoke(
@@ -161,21 +165,22 @@ async def interrypts_judge(
                 "_t": timestamp(),
                 "type": "interrupt"
             }
-            await session_redis.set_session(user_id=user_id, thread_id=thread_id,message_id=message_id, data=interrupt_info)
+            await session_redis.set_session(user_id=user_id, thread_id=thread_id, message_id=message_id, data=interrupt_info)
     except Exception as e:
         logger.error(f"中断恢复运行失败: {e}")
         raise e
     return result
 
+
 async def run_agent_astream(
-    agent: CompiledStateGraph,
-    query: str,
-    thread_id: str = "1001",
-    user_id: str = "1001",
-    message_id: str = '',
-    model_name: ModelLabel = "deepseek",
-    api_key: Optional[str] = None,
-    session_redis: Optional[SessionRedis] = None,):
+        agent: CompiledStateGraph,
+        query: str,
+        thread_id: str = "1001",
+        user_id: str = "1001",
+        message_id: str = '',
+        model_name: ModelLabel = "deepseek",
+        api_key: Optional[str] = None,
+        session_redis: Optional[SessionRedis] = None,):
     """
     流式运行智能体
     Args:
@@ -225,7 +230,7 @@ async def run_agent_astream(
                         "_t": timestamp(),
                         "type": "interrupt"
                     }
-                    await session_redis.set_session(user_id=user_id, thread_id=thread_id,message_id=message_id, data=interrupt_info)
+                    await session_redis.set_session(user_id=user_id, thread_id=thread_id, message_id=message_id, data=interrupt_info)
                 yield data
     except Exception as e:
         logger.error(f"流式运行智能体失败: {e}")
@@ -233,13 +238,13 @@ async def run_agent_astream(
 
 
 async def interrypts_judge_astream(
-    agent: CompiledStateGraph,
-    user_id: str,
-    thread_id: str,
-    session_redis: SessionRedis,
-    decides: List[AllowedDecisions],
-    message_id: str = '',
-    is_all_decides: bool = False):
+        agent: CompiledStateGraph,
+        user_id: str,
+        thread_id: str,
+        session_redis: SessionRedis,
+        decides: List[AllowedDecisions],
+        message_id: str = '',
+        is_all_decides: bool = False):
     """
     中断恢复流式运行智能体
     Args:
@@ -254,7 +259,7 @@ async def interrypts_judge_astream(
         Optional[Result]: 决策结果,如果中断信息为空,则返回None
     """
     # 获取中断信息
-    interrupt_info = await session_redis.get_session(user_id=user_id, thread_id=thread_id,message_id=message_id)
+    interrupt_info = await session_redis.get_session(user_id=user_id, thread_id=thread_id, message_id=message_id)
     if not interrupt_info:
         logger.warning(
             f"用户当前对话不存在中断信息: user_id={user_id}, thread_id={thread_id}")
@@ -273,17 +278,19 @@ async def interrypts_judge_astream(
             decisions.append(decide)
     else:
         if len(decides) != 1:
-            logger.warning(f"is_all_decides为True时,决策列表长度必须为1,当前长度为{len(decides)}")
+            logger.warning(
+                f"is_all_decides为True时,决策列表长度必须为1,当前长度为{len(decides)}")
             yield None
             return
         if decides[0] not in ['approve', 'reject']:
-            logger.warning(f"is_all_decides为True时,决策列表仅支持'approve'或'reject',当前元素为{decides[0]}")
+            logger.warning(
+                f"is_all_decides为True时,决策列表仅支持'approve'或'reject',当前元素为{decides[0]}")
             yield None
             return
         for i in range(len(interrupt_info.get('interrupt_list', []))):
             decide = {"type": decides[0]}
             decisions.append(decide)
-        
+
     # 构建配置
     config = invoke_config(
         thread_id=interrupt_info.get('thread_id', ''),
@@ -296,7 +303,7 @@ async def interrypts_judge_astream(
         thread_id=interrupt_info.get('thread_id'),
         user_id=interrupt_info.get('user_id')
     )
-    await session_redis.delete_session(user_id=user_id, thread_id=thread_id,message_id=message_id)
+    await session_redis.delete_session(user_id=user_id, thread_id=thread_id, message_id=message_id)
     # 流式运行智能体
     try:
         async for chunk in agent.astream(
@@ -329,7 +336,7 @@ async def interrypts_judge_astream(
                         "_t": timestamp(),
                         "type": "interrupt"
                     }
-                    await session_redis.set_session(user_id=user_id, thread_id=thread_id,message_id=message_id, data=interrupt_info)
+                    await session_redis.set_session(user_id=user_id, thread_id=thread_id, message_id=message_id, data=interrupt_info)
                 yield data
 
     except Exception as e:

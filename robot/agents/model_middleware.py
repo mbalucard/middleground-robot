@@ -15,8 +15,10 @@ from robot.tools.message_content import strip_images_from_messages
 from robot.agents.models import (
     deepseek_model,
     deepseek_model_vision,
-    minimax_model,
+    minimax_model_M27,
     minimax_model_M3,
+    aihubmix_minimax_m27,
+    aihubmix_minimax_m3,
 )
 
 
@@ -41,7 +43,7 @@ class DynamicModelSelectionMiddleware(AgentMiddleware):
     def _select_model(self, request: ModelRequest):
         """根据消息数量动态选择模型"""
         message_count = len(request.state["messages"])
-        return minimax_model if message_count > 10 else deepseek_model
+        return minimax_model_M27 if message_count > 10 else deepseek_model
 
     def wrap_model_call(
         self,
@@ -70,12 +72,16 @@ class ConfigurableModelMiddleware(AgentMiddleware):
         model_name = request.runtime.context.model
         if model_name == "deepseek":
             return deepseek_model
-        if model_name == "minimax":
-            return minimax_model
+        if model_name == "minimax_m27":
+            return minimax_model_M27
         if model_name == "minimax_m3":
             return minimax_model_M3
         if model_name == "deepseek_vision":
             return deepseek_model_vision
+        if model_name == "aihubmix_minimax_m27":
+            return aihubmix_minimax_m27
+        if model_name == "aihubmix_minimax_m3":
+            return aihubmix_minimax_m3
         return deepseek_model
 
     def wrap_model_call(

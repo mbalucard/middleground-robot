@@ -6,14 +6,15 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
+ModelLabel = Literal["deepseek", "minimax_m27", "minimax_m3", "deepseek_vision", "aihubmix_minimax_m27", "aihubmix_minimax_m3"]
 
 @dataclass
 class Context:
     """ 上下文模型 """
-    model: Optional[str] = None  # 模型名称
+    model: Optional[ModelLabel] = None  # 模型名称
     api_key: Optional[str] = None  # 通行密匙
     thread_id: Optional[str] = None  # 线程ID
     user_id: Optional[str] = None  # 用户ID

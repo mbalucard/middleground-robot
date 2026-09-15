@@ -8,26 +8,25 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 import redis.asyncio as redis
 
-from robot.agents.model_context import Context, invoke_config
+from robot.agents.model_context import Context, invoke_config, ModelLabel
 from api.qw_robot.session_manager import session_hset, tool_calls_hset
 from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="agent_astream")
 
-ModelLabel = Literal["deepseek", "minimax", "minimax_m3", "deepseek_vision"]
 UserContent = Union[str, List[Dict[str, Any]]]
 
 
 async def agent_astream(
-    agent: CompiledStateGraph,
-    question: str,
-    thread_id: str,
-    user_id: str,
-    model_name: ModelLabel = "deepseek",
-    api_key: Optional[str] = None,
-    message_id: Optional[str] = None,
-    redis_client: Optional[redis.Redis] = None,
-    user_content: Optional[UserContent] = None,):
+        agent: CompiledStateGraph,
+        question: str,
+        thread_id: str,
+        user_id: str,
+        model_name: ModelLabel = "deepseek",
+        api_key: Optional[str] = None,
+        message_id: Optional[str] = None,
+        redis_client: Optional[redis.Redis] = None,
+        user_content: Optional[UserContent] = None,):
     """
     流式运行智能体
     Args:
@@ -36,7 +35,7 @@ async def agent_astream(
         thread_id(str): 线程ID
         user_id(str): 用户ID
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax / minimax_m3 / deepseek_vision
+            - deepseek / minimax_m27 / minimax_m3 / deepseek_vision / aihubmix_minimax_m27
         api_key(Optional[str]): 通行密匙, default=None
         message_id(Optional[str]): 消息ID, default=None
         redis_client(Optional[redis.Redis]): redis客户端, default=None
@@ -49,7 +48,8 @@ async def agent_astream(
     config = invoke_config(thread_id=thread_id, user_id=user_id)
     content = user_content if user_content is not None else question
     human_message = HumanMessage(content=content)
-    context = Context(model=model_name, api_key=api_key, thread_id=thread_id, user_id=user_id)
+    context = Context(model=model_name, api_key=api_key,
+                      thread_id=thread_id, user_id=user_id)
     async for chunk in agent.astream(
         {"messages": [human_message]},
         config=config,
