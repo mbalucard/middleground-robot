@@ -22,6 +22,39 @@ def format_long_term_info_key(content: str) -> str:
     return f"/{content.replace(' ', '_')}.md"
 
 
+def content_processing(content: list[dict] | str):
+    """
+    处理AIMessage中的content为字符串
+    Args:
+        content: AIMessage中的content
+    Returns:
+        str: 处理后的字符串
+    """
+    if isinstance(content, list):
+        texts = [
+            b.get("text")
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text" and b.get("text")
+        ]
+        thinkings = [
+            b.get("thinking")
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "thinking" and b.get("thinking")
+        ]
+        if texts:
+            text = ''
+            for t in texts:
+                text += t
+            return text
+        elif thinkings:
+            thinking = ''
+            for t in thinkings:
+                thinking += t
+            return f"thinking: {thinking}"
+    else:
+        return content
+
+
 def agent_message_to_dict(message: AgentMessageType) -> dict:
     """
     将Agent消息转换为字典
@@ -33,7 +66,7 @@ def agent_message_to_dict(message: AgentMessageType) -> dict:
     if isinstance(message, AIMessage):
         data_dict = {
             "type": "AIMessage",
-            "content": message.content,
+            "content": content_processing(message.content),
             "additional_kwargs": message.additional_kwargs,
             "response_metadata": message.response_metadata,
             "id": message.id,
