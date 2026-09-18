@@ -14,7 +14,6 @@ from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResp
 from robot.tools.message_content import strip_images_from_messages
 from robot.agents.models import (
     deepseek_model,
-    deepseek_model_vision,
     minimax_model_M27,
     minimax_model_M3,
     aihubmix_minimax_m27,
@@ -24,7 +23,7 @@ from robot.agents.models import (
 
 def _is_vision_model(model: Any) -> bool:
     """是否为支持图片输入的模型实例。"""
-    return model is deepseek_model_vision or model is minimax_model_M3
+    return model is deepseek_model or model is minimax_model_M3
 
 
 def _prepare_request(request: ModelRequest, model: Any) -> ModelRequest:
@@ -76,8 +75,6 @@ class ConfigurableModelMiddleware(AgentMiddleware):
             return minimax_model_M27
         if model_name == "minimax_m3":
             return minimax_model_M3
-        if model_name == "deepseek_vision":
-            return deepseek_model_vision
         if model_name == "aihubmix_minimax_m27":
             return aihubmix_minimax_m27
         if model_name == "aihubmix_minimax_m3":

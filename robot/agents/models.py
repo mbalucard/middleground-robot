@@ -28,15 +28,6 @@ deepseek_model = init_chat_model(
     reasoning_effort="high",  # 推理力度，low为低，high为中，max为高
 )
 
-deepseek_model_vision = init_chat_model(
-    model=DeepSeekModelConfig.MODEL_NAME_VISION,
-    api_key=DeepSeekModelConfig.API_KEY,
-    base_url=DeepSeekModelConfig.BASE_URL_OPENAI,
-    model_provider="openai",
-    extra_body={"thinking": {"type": "enabled"}},
-    reasoning_effort="low",
-)
-
 
 minimax_model_M27 = init_chat_model(
     model=MiniMaxModelConfig.MODEL_NAME_M27,
@@ -80,5 +71,4 @@ if __name__ == "__main__":
     print(deepseek_model.model_dump())
     print(minimax_model_M27.model_dump())
     print(minimax_model_M3.model_dump())
-    print(deepseek_model_vision.model_dump())
     print(aihubmix_minimax_m27.model_dump())

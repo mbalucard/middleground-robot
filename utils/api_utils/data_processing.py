@@ -1,6 +1,7 @@
 """
 数据处理工具
     - format_long_term_info_key 格式化长期记忆信息键
+    - content_processing 处理AIMessage中的content为字符串
     - agent_message_to_dict 将Agent消息转换为字典
     - tool_call_to_dict 将Agent消息的工具调用转换为字典
 """
