@@ -14,6 +14,9 @@ class QywxBotConfig:
     ID = os.getenv('QYWX_BOT_ID')
     SECRET = os.getenv('QYWX_BOT_SECRET')
 
+class APIConfig:
+    """API配置"""
+    url = "http://127.0.0.1:8010"
 
 deming_uat_env = {
     "url": os.getenv("DEMING_UAT_URL"),

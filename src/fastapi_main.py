@@ -85,3 +85,12 @@ if __name__ == "__main__":
         reload=True,
         log_level="debug"
     )
+    # uvicorn.run(
+    #     "src.fastapi_main:app",
+    #     host="0.0.0.0",
+    #     port=8010,
+    #     reload=False,
+    #     log_level="info",
+    # )
+
+# uv run src/fastapi_main.py

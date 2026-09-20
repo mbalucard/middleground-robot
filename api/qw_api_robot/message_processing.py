@@ -1,44 +1,42 @@
 """
-消息处理
+消息处理（企微适配 → HTTP API）
     - respond_stream: 发送流式消息
     - heartbeat_loop: 心跳包
     - handle_msg_callback: 处理消息回调
 """
 
-from api.qw_robot.general_tools import (
-    send_and_wait_response,
+from __future__ import annotations
+
+import asyncio
+from typing import Any, Optional
+
+from api.qw_api_robot.api_client import ApiClientError
+from api.qw_api_robot.general_tools import (
+    get_or_create_api_thread_id,
     new_req_id,
-    get_redis_id,
+    send_and_wait_response,
 )
-from api.qw_robot.session_manager import session_hset
-from api.qw_robot.media_handler import MediaError, prepare_image_for_model
-from api.qw_robot.pending_images import (
-    PendingFullError,
-    append_pending_image,
-    take_pending_images,
-)
-from api.qw_robot.mes_busy import (
+from api.qw_api_robot.media_handler import MediaError, prepare_image_for_model
+from api.qw_api_robot.mes_busy import (
     BUSY_REPLY,
     release_busy,
     try_acquire_busy,
 )
-from api.qw_robot.stream_agent import agent_astream
-from robot.tools.message_content import (
-    DEFAULT_MULTI_IMAGE_PROMPT,
-    VisionProvider,
-    build_vision_user_content,
-    vision_model_name,
+from api.qw_api_robot.pending_images import (
+    PendingFullError,
+    append_pending_image,
+    take_pending_images,
 )
-
-from langgraph.graph.state import CompiledStateGraph
+from api.qw_api_robot.stream_agent import agent_astream
+from robot.tools.message_content import DEFAULT_MULTI_IMAGE_PROMPT
 from utils.logger_manager import LoggerManager
 from utils.redis_link import RedisManager
 
-from typing import Any, Optional
-import asyncio
-
-logger = LoggerManager.get_logger(name='message_processing')
+logger = LoggerManager.get_logger(name="qw_api_message_processing")
 r_link = RedisManager()
+
+# 与 API prepare_vision_turn 上限对齐（挂起仍最多 5）
+MAX_IMAGES_PER_REQUEST = 10
 
 
 def _parse_mixed_items(body: dict) -> tuple[str, list[dict]]:
@@ -91,6 +89,25 @@ def _should_use_busy(chattype: str) -> bool:
         非群聊时为 True
     """
     return chattype != "group"
+
+
+def _payloads_to_api_images(payloads: list[dict]) -> list[dict[str, str]]:
+    """
+    将本地图片 payload 转为 API images 字段
+    Args:
+        payloads(list): [{media_type, data}, ...]
+    Returns:
+        API images 列表
+    """
+    out: list[dict[str, str]] = []
+    for p in payloads:
+        if not p.get("data"):
+            continue
+        item: dict[str, str] = {"data": str(p["data"])}
+        if p.get("media_type"):
+            item["media_type"] = str(p["media_type"])
+        out.append(item)
+    return out
 
 
 async def respond_stream(
@@ -176,30 +193,30 @@ async def heartbeat_loop(ws, interval: float = 30.0) -> None:
 async def _run_agent_stream(
     ws,
     *,
-    agent: CompiledStateGraph,
     callback_req_id: str,
     stream_id: str,
     question: str,
     thread_id: str,
     userid: str,
-    r_client,
     model_name: str = "deepseek",
-    user_content: Any = None,
-    placeholder: str = "正在思考...",) -> None:
+    images: Optional[list[dict[str, Any]]] = None,
+    provider: Optional[str] = None,
+    placeholder: str = "正在思考...",
+    has_images: bool = False,) -> None:
     """
-    占位流式气泡后调用智能体并刷新回复
+    占位流式气泡后调用 API 并刷新回复
     Args:
         ws: websocket连接
-        agent: 智能体
         callback_req_id(str): 回调请求ID
         stream_id(str): 流式消息ID
         question(str): 用户问题
-        thread_id(str): 会话ID
+        thread_id(str): API 会话ID
         userid(str): 用户ID
-        r_client: Redis连接
-        model_name(str): 模型名称, default="deepseek"
-        user_content: 多模态用户内容, default=None
+        model_name(str): 模型标签, default="deepseek"
+        images(list): API 图片列表, default=None
+        provider: 有图时必填, default=None
         placeholder(str): 占位文案, default="正在思考..."
+        has_images(bool): 是否图文请求（影响失败文案）, default=False
     """
     await respond_stream(
         ws,
@@ -213,14 +230,12 @@ async def _run_agent_stream(
     last = ""
     try:
         async for partial in agent_astream(
-            agent=agent,
             question=question,
             thread_id=thread_id,
             user_id=userid,
-            message_id=stream_id,
-            redis_client=r_client,
             model_name=model_name,
-            user_content=user_content,
+            images=images,
+            provider=provider,  # type: ignore[arg-type]
         ):
             last = partial
             resp = await respond_stream(
@@ -234,8 +249,8 @@ async def _run_agent_stream(
                 logger.error(f"流式刷新失败: {resp}")
                 return
     except Exception as e:
-        logger.exception(f"Agent 调用失败: {e}")
-        last = "图片理解失败，请稍后重试" if user_content is not None else "处理失败，请稍后重试"
+        logger.exception(f"Agent API 调用失败: {e}")
+        last = "图片理解失败，请稍后重试" if has_images else "处理失败，请稍后重试"
         await respond_stream(
             ws,
             callback_req_id,
@@ -273,53 +288,29 @@ async def _prepare_payloads_from_refs(image_refs: list[dict]) -> list[dict]:
 async def _handle_vision_flow(
     ws,
     *,
-    agent: CompiledStateGraph,
     callback_req_id: str,
     stream_id: str,
     userid: str,
     thread_id: str,
-    chattype: str,
-    aibot_id: str,
-    r_client,
     text_prompt: str,
     image_refs: Optional[list[dict]] = None,
     image_payloads: Optional[list[dict]] = None,
-    question_prefix: str = "[图片]",
     skip_initial_placeholder: bool = False,
-    provider: VisionProvider = "openai",) -> None:
+    provider: str = "openai",) -> None:
     """
-    多模态理解并流式文字回复
+    多模态理解并流式文字回复（经 HTTP API）
     Args:
         ws: websocket连接
-        agent: 智能体
         callback_req_id(str): 回调请求ID
         stream_id(str): 流式消息ID
         userid(str): 用户ID
-        thread_id(str): 会话ID
-        chattype(str): 会话类型
-        aibot_id(str): 机器人ID
-        r_client: Redis连接
+        thread_id(str): API 会话ID
         text_prompt(str): 用户文本或默认提示
         image_refs(list): 需下载的图片引用, default=None
-            - [{url, aeskey}, ...]
         image_payloads(list): 已缓存的图片 payload, default=None
-        question_prefix(str): 会话记录前缀, default="[图片]"
         skip_initial_placeholder(bool): 是否跳过「正在识别图片...」, default=False
-        provider: 视觉模型提供方, default="openai"
-            - openai → DeepSeek Vision
-            - anthropic → MiniMax-M3
+        provider(str): 视觉协议, default="openai"
     """
-    question_for_db = f"{question_prefix} {text_prompt}"
-    await session_hset(
-        redis_client=r_client,
-        message_id=stream_id,
-        user_id=userid,
-        aibot_id=aibot_id,
-        chat_type=chattype,
-        thread_id=thread_id,
-        question=question_for_db,
-    )
-
     if not skip_initial_placeholder:
         await respond_stream(
             ws,
@@ -368,56 +359,42 @@ async def _handle_vision_flow(
         )
         return
 
-    user_content = build_vision_user_content(
-        text_prompt, payloads, provider=provider
-    )
-    last = ""
-    try:
-        async for partial in agent_astream(
-            agent=agent,
-            question=question_for_db,
-            thread_id=thread_id,
-            user_id=userid,
-            message_id=stream_id,
-            redis_client=r_client,
-            model_name=vision_model_name(provider),
-            user_content=user_content,
-        ):
-            last = partial
-            resp = await respond_stream(
-                ws,
-                callback_req_id,
-                stream_id,
-                content=partial,
-                finish=False,
-            )
-            if resp.get("errcode", 0) != 0:
-                logger.error(f"流式刷新失败: {resp}")
-                return
-    except Exception as e:
-        logger.exception(f"图片理解 Agent 失败: {e}")
-        last = "图片理解失败，请稍后重试"
+    if len(payloads) > MAX_IMAGES_PER_REQUEST:
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content=(
+                f"单次最多上传 {MAX_IMAGES_PER_REQUEST} 张图片，"
+                f"当前 {len(payloads)} 张，请减少后重试"
+            ),
+            finish=True,
+            feedback_id=f"fb-{stream_id}",
+        )
+        return
 
-    await respond_stream(
+    query = (text_prompt or "").strip() or DEFAULT_MULTI_IMAGE_PROMPT
+    await _run_agent_stream(
         ws,
-        callback_req_id,
-        stream_id,
-        content=last or "（无内容）",
-        finish=True,
-        feedback_id=f"fb-{stream_id}",
+        callback_req_id=callback_req_id,
+        stream_id=stream_id,
+        question=query,
+        thread_id=thread_id,
+        userid=userid,
+        model_name="deepseek",
+        images=_payloads_to_api_images(payloads),
+        provider=provider,
+        placeholder="正在识别图片..." if skip_initial_placeholder else "正在思考...",
+        has_images=True,
     )
 
 
-async def handle_msg_callback(
-    ws,
-    msg: dict,
-    agent: CompiledStateGraph,) -> None:
+async def handle_msg_callback(ws, msg: dict) -> None:
     """
     处理企微消息回调
     Args:
         ws: websocket连接
         msg(dict): 回调消息
-        agent: 智能体
     """
     headers = msg.get("headers") or {}
     body = msg.get("body") or {}
@@ -440,10 +417,30 @@ async def handle_msg_callback(
         )
         return
 
-    thread_id = await get_redis_id(key=userid, id_type="thread_id")
+    try:
+        thread_id = await get_or_create_api_thread_id(userid)
+    except ApiClientError as e:
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content=e.user_message,
+            finish=True,
+        )
+        return
+    except Exception as e:
+        logger.exception(f"获取 API thread 失败: {e}")
+        await respond_stream(
+            ws,
+            callback_req_id,
+            stream_id,
+            content="创建会话失败，请稍后重试",
+            finish=True,
+        )
+        return
+
     logger.info(f"msg_body_from: {from_info} - thread_id: {thread_id}")
     r_client = await r_link.get_client()
-    aibot_id = body.get("aibotid", "")
 
     # --- 文本 ---
     if msgtype == "text":
@@ -465,38 +462,22 @@ async def handle_msg_callback(
             if pending:
                 await _handle_vision_flow(
                     ws,
-                    agent=agent,
                     callback_req_id=callback_req_id,
                     stream_id=stream_id,
                     userid=userid,
                     thread_id=thread_id,
-                    chattype=chattype,
-                    aibot_id=aibot_id,
-                    r_client=r_client,
                     text_prompt=question or DEFAULT_MULTI_IMAGE_PROMPT,
                     image_payloads=pending,
-                    question_prefix=f"[图片追问]（{len(pending)}张）",
                 )
                 return
 
-            await session_hset(
-                redis_client=r_client,
-                message_id=stream_id,
-                user_id=userid,
-                aibot_id=aibot_id,
-                chat_type=chattype,
-                thread_id=thread_id,
-                question=question,
-            )
             await _run_agent_stream(
                 ws,
-                agent=agent,
                 callback_req_id=callback_req_id,
                 stream_id=stream_id,
                 question=question,
                 thread_id=thread_id,
                 userid=userid,
-                r_client=r_client,
                 model_name="deepseek",
                 placeholder="正在思考...",
             )
@@ -579,15 +560,6 @@ async def handle_msg_callback(
             )
             return
 
-        await session_hset(
-            redis_client=r_client,
-            message_id=stream_id,
-            user_id=userid,
-            aibot_id=aibot_id,
-            chat_type=chattype,
-            thread_id=thread_id,
-            question=f"[图片挂起] 第{count}张",
-        )
         await respond_stream(
             ws,
             callback_req_id,
@@ -629,41 +601,25 @@ async def handle_msg_callback(
                     )
                     return
                 if text_part and not pending:
-                    await session_hset(
-                        redis_client=r_client,
-                        message_id=stream_id,
-                        user_id=userid,
-                        aibot_id=aibot_id,
-                        chat_type=chattype,
-                        thread_id=thread_id,
-                        question=text_part,
-                    )
                     await _run_agent_stream(
                         ws,
-                        agent=agent,
                         callback_req_id=callback_req_id,
                         stream_id=stream_id,
                         question=text_part,
                         thread_id=thread_id,
                         userid=userid,
-                        r_client=r_client,
                         model_name="deepseek",
                         placeholder="正在思考...",
                     )
                     return
                 await _handle_vision_flow(
                     ws,
-                    agent=agent,
                     callback_req_id=callback_req_id,
                     stream_id=stream_id,
                     userid=userid,
                     thread_id=thread_id,
-                    chattype=chattype,
-                    aibot_id=aibot_id,
-                    r_client=r_client,
                     text_prompt=text_part or DEFAULT_MULTI_IMAGE_PROMPT,
                     image_payloads=pending,
-                    question_prefix=f"[图文合并]（含挂起{len(pending)}张）",
                 )
                 return
 
@@ -711,48 +667,26 @@ async def handle_msg_callback(
             )
             all_payloads = list(pending) + mixed_payloads
             if not all_payloads:
-                await session_hset(
-                    redis_client=r_client,
-                    message_id=stream_id,
-                    user_id=userid,
-                    aibot_id=aibot_id,
-                    chat_type=chattype,
-                    thread_id=thread_id,
-                    question=text_part or "",
-                )
                 await _run_agent_stream(
                     ws,
-                    agent=agent,
                     callback_req_id=callback_req_id,
                     stream_id=stream_id,
                     question=text_part or DEFAULT_MULTI_IMAGE_PROMPT,
                     thread_id=thread_id,
                     userid=userid,
-                    r_client=r_client,
                     model_name="deepseek",
                     placeholder="正在思考...",
                 )
                 return
 
-            text_prompt = text_part or DEFAULT_MULTI_IMAGE_PROMPT
-            prefix = (
-                f"[图文合并]（含挂起{len(pending)}张）"
-                if pending
-                else "[图文]"
-            )
             await _handle_vision_flow(
                 ws,
-                agent=agent,
                 callback_req_id=callback_req_id,
                 stream_id=stream_id,
                 userid=userid,
                 thread_id=thread_id,
-                chattype=chattype,
-                aibot_id=aibot_id,
-                r_client=r_client,
-                text_prompt=text_prompt,
+                text_prompt=text_part or DEFAULT_MULTI_IMAGE_PROMPT,
                 image_payloads=all_payloads,
-                question_prefix=prefix,
                 skip_initial_placeholder=True,
             )
         finally:

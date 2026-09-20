@@ -1,31 +1,38 @@
 # middleground-robot
 
-`middleground-robot` 是一个企业微信智能机器人服务。通过 WebSocket 长连接接收企微 AI Bot 回调，使用 DeepAgents / LangGraph 组织智能体执行，支持流式回复、工具调用、MCP 扩展、会话缓存，以及基于 PostgreSQL 的持久化记忆与执行状态存储。
+`middleground-robot` 是一个企业微信智能机器人与 Agent HTTP API 服务。企微侧通过 WebSocket 长连接收消息，再经 HTTP 调用本仓库 FastAPI，由 DeepAgents / LangGraph 执行智能体；支持流式回复、工具调用、MCP 扩展、图文理解，以及基于 PostgreSQL 的会话与长期记忆。
 
 当前默认智能体名称为 `Dawn`。
 
 ## 项目现状概览
+
+架构为双进程：
+
+1. **FastAPI**（默认 `8010`）：Agent / 会话 / 记忆 HTTP 接口，负责模型调用与业务落库
+2. **企微适配进程**（`qw_main`）：WebSocket 订阅企微，媒体下载与挂起图，再调用 FastAPI
 
 已实现的核心能力：
 
 - 企业微信 AI Bot WebSocket 订阅、心跳保活、消息与事件回调处理
 - 文本消息流式回复；进入会话时发送欢迎语
 - 单聊纯图片挂起（`image`：下载解密写入 Redis，最多 5 张 / 10 分钟；固定话术等待下一问）
-- 挂起图追问：同用户同 `thread_id` 的后续 `text` 或 `mixed` 会带上挂起图（`mixed` 再合并本次附图）交由识图模型文字回复，答完清空（默认 DeepSeek Vision）
+- 挂起图追问：同用户同 API `thread_id` 的后续 `text` 或 `mixed` 会带上挂起图交由识图模型文字回复（默认 DeepSeek Vision / `provider=openai`）
 - 单聊消息忙锁：同一会话处理中时拒绝新请求，避免并发打断
+- FastAPI：`/agent` 同步与流式调用、中断恢复路由；`/session` 会话线程；`/memory` 长期记忆与会话详情
 - 基于 DeepAgents 的工具调用型 Agent（含 summarization / 模型选择中间件）
-- Redis 维护 `thread_id`、消息中间态、工具调用中间态、纯图挂起队列与忙锁
-- PostgreSQL 持久化问答记录、工具调用记录，以及 LangGraph checkpoint/store
+- Redis：企微侧 API `thread_id` 映射、纯图挂起队列、忙锁；API 侧中断会话等
+- PostgreSQL：`user_threads` / `user_thread_messages` / `message_tool_calls`，以及 LangGraph checkpoint/store
 - 内置工具：联网搜索、当前时间、店铺信息、销售数据查询
 - MCP 工具：企业微信通讯录、企业微信会议（streamable HTTP）
-- 通过 `/memories/` 提供跨会话长期记忆
+- 通过 `/memories/`（Agent 工作区约定）与 `/memory` HTTP 路由提供跨会话长期记忆
 
 当前限制：
 
 - 群聊纯图片（`image`）企微通常不回调；请用 @机器人 + 图文（`mixed`）或单聊发图
-- 纯图挂起满 5 张后拒绝再追加纯图；发 `mixed` 仍可与挂起图合并作答
+- 纯图挂起满 5 张后拒绝再追加纯图；发 `mixed` 仍可与挂起图合并作答（合计超过 API 上限 10 张会在企微侧提示）
 - 不支持机器人回复图片；文件、语音、视频等仍返回“暂不支持”
-- 运行依赖企业微信、PostgreSQL、Redis，以及模型相关密钥
+- 企微侧中断（interrupt）暂仅固定提示，尚未做审批恢复交互
+- 运行依赖企业微信、PostgreSQL、Redis、FastAPI 进程，以及模型相关密钥
 - 销售/店铺类工具依赖额外的 MySQL 数据源；MCP 工具依赖对应服务 URL
 
 ## 技术栈
@@ -33,6 +40,7 @@
 - Python `>=3.14`
 - [deepagents](https://github.com/langchain-ai/deepagents)
 - LangGraph / LangChain
+- FastAPI / uvicorn / httpx
 - PostgreSQL / Redis
 - WebSocket（`websockets`）
 - Tavily Search
@@ -44,49 +52,52 @@
 ```text
 middleground-robot/
 ├── src/
-│   └── qw_robot_main.py          # 主入口：企微 WS、订阅、心跳、消息分发
-├── api/qw_robot/
-│   ├── message_processing.py     # 消息回调、流式响应、识图流程、心跳
-│   ├── stream_agent.py           # 企微流式运行智能体（含会话/工具落库）
+│   ├── fastapi_main.py           # FastAPI 入口（Agent / Session / Memory）
+│   ├── qw_main.py                # 企微 WS 入口（适配层，HTTP 调 API）
+│   └── routes/
+│       ├── agent_interactive.py  # /agent 调用与流式、中断恢复
+│       ├── session_management.py # /session 会话线程
+│       └── memory_management.py  # /memory 长期记忆与会话详情
+├── api/qw_api_robot/
+│   ├── message_processing.py     # 消息回调、流式响应、图文流程、心跳
+│   ├── api_client.py             # HTTP 调 FastAPI（session create / agent stream）
+│   ├── stream_agent.py           # NDJSON → 企微展示文案
 │   ├── media_handler.py          # 企微图片下载与 AES 解密
 │   ├── pending_images.py         # 纯图 Redis 挂起队列
 │   ├── mes_busy.py               # 单聊消息忙锁
-│   ├── session_manager.py        # Redis 中间态与 Postgres 落库
-│   ├── data_models.py            # 问答/工具调用表定义与建表
-│   ├── data_interaction.py       # 数据写入逻辑
-│   └── general_tools.py          # req_id、thread_id、send_json、WS 应答分发
+│   └── general_tools.py          # req_id、API thread 缓存、WS 收发分发
 ├── robot/
 │   ├── agents/                   # Agent 构建、调用与模型层
 │   │   ├── main_agent.py         # Agent 构建入口
-│   │   ├── agent_invoke.py       # 同步调用、中断恢复
+│   │   ├── agent_invoke.py       # 同步/流式调用、中断恢复
 │   │   ├── agent_backend.py      # Filesystem + Store 组合后端
 │   │   ├── model_middleware.py   # 模型选择中间件
 │   │   ├── model_context.py      # Agent 运行上下文
 │   │   └── models.py             # DeepSeek / MiniMax 模型初始化
-│   ├── agent_tools/              # Agent 可调用的工具（挂载到 tools 参数）
+│   ├── agent_tools/              # Agent 可调用的工具
 │   │   ├── ordinary_tool.py      # 联网搜索、当前时间
 │   │   ├── sale_tools.py         # 销售数据查询
 │   │   ├── shop_info_tools.py    # 企业/门店/店铺信息查询
 │   │   └── mcp_server_tools.py   # MCP 工具加载
-│   ├── tools/                    # Agent 运行用组件（非工具挂载）
+│   ├── tools/                    # 运行用组件（非工具挂载）
 │   │   ├── message_content.py    # 多模态 content 拼装与剥图
 │   │   ├── message_tool.py       # 消息整理工具
 │   │   └── memory_device.py      # Postgres checkpoint/store 资源
 │   └── workspace/                # Agent 工作目录
-│       ├── AGENTS.md             # 工作区说明与记忆约定
-│       ├── sys_message.md        # 系统提示（持久化记忆规则）
-│       └── me/                   # 身份 / 性格 / 长期记忆
+│       ├── AGENTS.md
+│       ├── sys_message.md
+│       └── me/                   # 身份 / 性格 / 长期记忆约定
 ├── configs/
-│   ├── api_config.py             # 企微配置
+│   ├── api_config.py             # 企微与 APIConfig.url
 │   ├── model_config.py           # 模型与搜索配置
 │   ├── service_config.py         # Redis / Postgres / MySQL / 日志配置
 │   ├── mcp_configs.py            # MCP 服务地址
 │   └── general_config.py         # 项目路径等通用配置
+├── utils/                        # DB、Redis、日志、api_utils 等
 ├── data/sql/                     # 销售与店铺查询 SQL
-├── utils/                        # DB、Redis、日志、时间等基础设施
 ├── main.py                       # 简单占位脚本
-├── pyproject.toml                # 依赖声明
-└── setup.py                      # 可编辑安装入口
+├── pyproject.toml
+└── setup.py
 ```
 
 ## 运行流程
@@ -94,17 +105,21 @@ middleground-robot/
 ```text
 企业微信消息 / 事件
     ↓
-WebSocket 回调
+qw_main（WebSocket）
     ↓
 cmd 分流
-    ├─ aibot_event_callback（如 enter_chat 欢迎语）
-    └─ aibot_msg_callback → handle_msg_callback()
-            ├─ 校验消息类型（text / image / mixed / 其它）
-            ├─ 从 Redis 分配/续期 thread_id
-            ├─ 单聊抢占忙锁（失败则提示任务进行中）
+   ├─ aibot_event_callback（如 enter_chat 欢迎语）
+   └─ aibot_msg_callback → handle_msg_callback()
+            ├─ Redis 获取/创建 API thread_id（未命中则 POST /session/.../create）
+            ├─ 单聊抢占忙锁
             ├─ image → 挂起队列，返回就绪话术
-            ├─ text / mixed → 合并挂起图则走识图，否则走普通 Agent
-            └─ 流式回复，结束后写 Redis/Postgres，释放忙锁
+            ├─ text / mixed → 合并挂起图则带 images 调 API，否则纯文本调 API
+            └─ POST /agent/run_agent/stream → 解析 NDJSON → 企微流式刷新
+
+FastAPI（fastapi_main）
+    ├─ 校验会话 / 图文
+    ├─ run_agent_astream（落库由 BackgroundTasks 写入业务表）
+    └─ LangGraph checkpoint / store
 ```
 
 ## Agent 与工具
@@ -119,12 +134,7 @@ cmd 分流
 
 - 系统提示：`robot/workspace/sys_message.md`（身份见 `me/IDENTITY.md`，名称为 `Dawn`）
 - summarization middleware、模型选择 middleware（默认 `manual`）
-- 本地工具：
-  - `internet_search`
-  - `get_current_date`
-  - `get_shop_sale_data`
-  - `list_shops_with_sales`
-  - `get_shop_info`
+- 本地工具：`internet_search`、`get_current_date`、`get_shop_sale_data`、`list_shops_with_sales`、`get_shop_info`
 - MCP 工具：启动时通过 `QwMcp.get_tools()` 从配置的 MCP 服务动态加载
 
 说明：
@@ -135,7 +145,7 @@ cmd 分流
 
 ### 识图 provider（`openai` / `anthropic`）
 
-多模态 content 拼装在 `robot/tools/message_content.py`。企微侧 `_handle_vision_flow` 默认 `provider="openai"`。
+多模态 content 拼装在 `robot/tools/message_content.py`；API 校验见 `utils/api_utils/vision_request.py`。企微侧默认 `provider="openai"`、`model_label=deepseek`。
 
 | `provider` | content 协议 | `model_label` | 实际模型 |
 |---|---|---|---|
@@ -146,7 +156,7 @@ cmd 分流
 
 ### FastAPI 图文（`/agent/run_agent/invoke` · `/stream`）
 
-一次 JSON 提交文字 + 图（`images[].data` 为 base64 或 data URL，JPEG/PNG/GIF/WEBP，最多 10 张）。有图时 `provider` 必填，且须与上表白名单一致；业务库 `query` 存为 `[图片] {原文}`，本版不落原图。校验逻辑见 `utils/api_utils/vision_request.py`。
+一次 JSON 提交文字 + 图（`images[].data` 为 base64 或 data URL，JPEG/PNG/GIF/WEBP，最多 10 张）。有图时 `provider` 必填，且须与上表白名单一致；业务库 `query` 存为 `[图片] {原文}`，不落原图。
 
 ### 非 vision 回合剥图
 
@@ -156,31 +166,27 @@ cmd 分流
 
 ### Redis
 
-短期状态：
+企微适配侧：
 
-- 用户会话 `thread_id`（默认 TTL 见 `SESSION_TIMEOUT`，约 300 秒并带抖动）
-- 消息处理中间态、工具调用中间态
-- 纯图挂起队列、单聊忙锁
+- `qw_api_thread:{userid}`：缓存当前 API `thread_id`（TTL 约 600 秒，过期后重新 create）
+- `pending_images:{userid}:{thread_id}`：纯图挂起
+- `mes_busy:{userid}:{thread_id}`：单聊忙锁
 
-典型 Key：
-
-- `message:{user_id}+{message_id}`
-- `tool_calls:{message_id}+{tool_call_id}`
-- `pending_images:{userid}:{thread_id}`
-- `mes_busy:{userid}:{thread_id}`
+API 侧另有中断会话等 Key（由 `SessionRedis` 管理）。
 
 ### PostgreSQL
 
-业务表：
+业务表（由 FastAPI 写入）：
 
-- `qw_robot_messages`
-- `qw_robot_tool_calls`
+- `user_threads`
+- `user_thread_messages`
+- `message_tool_calls`
 
 LangGraph 通过 `AsyncPostgresSaver` / `AsyncPostgresStore` 维护 checkpoint 与 store，用于会话状态与 `/memories/` 长期记忆。
 
 ### `/memories/` 长期记忆
 
-系统提示要求将用户长期事实写入 `/memories/user_profile.md`，并按日记录 `/memories/YYYY-MM-DD.md`。该路径由 `StoreBackend` 按 `user_id` 隔离，落在 Postgres store。
+系统提示要求将用户长期事实写入 `/memories/user_profile.md`，并按日记录 `/memories/YYYY-MM-DD.md`。该路径由 `StoreBackend` 按 `user_id` 隔离，落在 Postgres store。HTTP 侧也可通过 `/memory/long_term_info/*` 读写。
 
 ## 环境变量
 
@@ -252,6 +258,8 @@ DemingMySQLHost=
 DemingMySQLPort=
 ```
 
+企微调 API 的基址在 `configs/api_config.py` 的 `APIConfig.url`（默认 `http://127.0.0.1:8010`）。本地调用使用 `httpx` 时需 `trust_env=False`，避免系统代理截走本机请求。
+
 ## 安装与启动
 
 ### 1. 安装依赖
@@ -263,47 +271,42 @@ uv sync
 uv pip install -e .
 ```
 
-### 2. 启动机器人主程序
+### 2. 启动（两个进程）
+
+先启动 FastAPI，等到日志出现 `Application startup complete`：
 
 ```bash
-python -m src.qw_robot_main
+uv run src/fastapi_main.py
 ```
 
-或：
+再启动企微适配进程：
 
 ```bash
-python src/qw_robot_main.py
+uv run src/qw_main.py
 ```
 
-启动后会：
+说明：
 
-1. 初始化 `qw_robot_messages` 与 `qw_robot_tool_calls`
-2. 连接企业微信 WebSocket，执行 `aibot_subscribe`
-3. 启动心跳协程
-4. 构建 Agent（含 MCP 工具加载）
-5. 接收消息并流式回复
+1. FastAPI 初始化 Redis、Postgres、Agent（含 MCP），监听 `0.0.0.0:8010`
+2. `qw_main` 连接企微 WebSocket，执行 `aibot_subscribe`，启动心跳，收消息后 HTTP 调 API
+3. 勿同时再跑旧的企微直连入口（若仓库中仍保留）
 
 ## 本地调试
 
 调试 Agent 构建：
 
 ```bash
-python -m robot.agents.main_agent
+uv run python -m robot.agents.main_agent
 ```
 
-调试流式 Agent 调用：
-
-```bash
-python -m api.qw_robot.stream_agent
-```
-
-说明：这两个入口同样依赖模型配置与 PostgreSQL。
+该入口依赖模型配置与 PostgreSQL。
 
 ## 依赖摘要
 
 `pyproject.toml` 主要依赖：
 
 - `deepagents`
+- `fastapi` / `httpx`
 - `langgraph-checkpoint-postgres`
 - `langchain-deepseek`
 - `langchain-mcp-adapters`
@@ -314,12 +317,11 @@ python -m api.qw_robot.stream_agent
 - `aiomysql`
 - `tavily-python`
 - `pycryptodome`
-- `httpx`
 
 ## 注意事项
 
-- 正式入口是 `src/qw_robot_main.py`，根目录 `main.py` 只是打印 Python 版本的占位脚本
+- 正式企微入口是 `src/qw_main.py`，Agent HTTP 入口是 `src/fastapi_main.py`；根目录 `main.py` 只是占位脚本
 - `model_config.py` 中部分环境变量会在导入阶段直接校验，缺失时抛错
 - 若只验证企微接入、不用销售类工具，仍建议补齐 MySQL 配置，避免工具初始化出错
 - MCP URL 未配置时，对应 MCP 工具可能加载失败，需保证服务可用或调整启动逻辑
-- 单聊忙锁 TTL 为 300 秒；纯图挂起最多 5 张、TTL 10 分钟
+- 单聊忙锁 TTL 为 300 秒；纯图挂起最多 5 张、TTL 10 分钟；企微侧 API `thread_id` 映射约 600 秒

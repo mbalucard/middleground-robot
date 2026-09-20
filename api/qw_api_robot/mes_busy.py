@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import redis.asyncio as redis
 
-from api.qw_robot.general_tools import new_req_id
+from api.qw_api_robot.general_tools import new_req_id
 
 BUSY_TTL_SECONDS = 300
 BUSY_REPLY = "🕐 任务进行中，请等待完成后再尝试......"

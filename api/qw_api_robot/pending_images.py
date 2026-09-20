@@ -15,7 +15,7 @@ from typing import Any
 import redis.asyncio as redis
 from redis.exceptions import ResponseError
 
-from api.qw_robot.media_handler import ImagePayload
+from api.qw_api_robot.media_handler import ImagePayload
 
 MAX_PENDING_IMAGES = 5
 PENDING_TTL_SECONDS = 600
