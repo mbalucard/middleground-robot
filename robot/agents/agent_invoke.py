@@ -5,7 +5,7 @@
     - run_agent_astream: 流式运行智能体
     - interrypts_judge_astream: 中断恢复流式运行智能体
 """
-from typing import Optional, Tuple, Any, Literal, Dict, List
+from typing import Optional, Tuple, Any, Literal, Dict, List, Union
 from langchain_core.messages import HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
@@ -21,6 +21,7 @@ logger = LoggerManager.get_logger(name="agent_invoke")
 
 
 AllowedDecisions = Literal['approve', 'edit', 'reject', 'respond']
+UserContent = Union[str, List[Dict[str, Any]]]
 
 
 async def run_agent(
@@ -31,23 +32,26 @@ async def run_agent(
         message_id: str = '',
         model_name: ModelLabel = "deepseek",
         api_key: Optional[str] = None,
-        session_redis: Optional[SessionRedis] = None,):
+        session_redis: Optional[SessionRedis] = None,
+        user_content: Optional[UserContent] = None,):
     """
     运行智能体
     Args:
         agent: 智能体
-        query(str): 查询字符串
+        query(str): 查询字符串（落库/中断记录用；有 user_content 时仅作兜底文案）
         thread_id(str): 线程ID, default="1001"
         user_id(str): 用户ID, default="1001"
         message_id(str): 消息ID, default=None
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax_m27 / minimax_m3 /aihubmix_minimax_m27
+            - deepseek / minimax_m27 / minimax_m3 / aihubmix_minimax_m27 / aihubmix_minimax_m3
         api_key(str): 通行密匙 default=None
         session_redis(Optional[SessionRedis]): 会话Redis default=None
+        user_content(Optional[UserContent]): 优先使用的用户消息内容（str 或多模态块列表）, default=None
     Returns:
         智能体响应
     """
-    human_message = HumanMessage(content=query)
+    content = user_content if user_content is not None else query
+    human_message = HumanMessage(content=content)
     config = invoke_config(thread_id, user_id=user_id)
     context = Context(model=model_name, api_key=api_key,
                       thread_id=thread_id, user_id=user_id)
@@ -180,22 +184,26 @@ async def run_agent_astream(
         message_id: str = '',
         model_name: ModelLabel = "deepseek",
         api_key: Optional[str] = None,
-        session_redis: Optional[SessionRedis] = None,):
+        session_redis: Optional[SessionRedis] = None,
+        user_content: Optional[UserContent] = None,):
     """
     流式运行智能体
     Args:
         agent: 智能体
-        query: 查询字符串
-        thread_id: 线程ID
-        user_id: 用户ID
-        message_id: 消息ID, default=''
-        model_name: 模型标签
-        api_key: 通行密匙
-        session_redis: 会话Redis
+        query(str): 查询字符串（落库/中断记录用；有 user_content 时仅作兜底文案）
+        thread_id(str): 线程ID, default="1001"
+        user_id(str): 用户ID, default="1001"
+        message_id(str): 消息ID, default=''
+        model_name(str): 模型标签, default="deepseek"
+            - deepseek / minimax_m27 / minimax_m3 / aihubmix_minimax_m27 / aihubmix_minimax_m3
+        api_key(str): 通行密匙, default=None
+        session_redis(Optional[SessionRedis]): 会话Redis, default=None
+        user_content(Optional[UserContent]): 优先使用的用户消息内容（str 或多模态块列表）, default=None
     Returns:
-        Optional[Result]: 决策结果,如果中断信息为空,则返回None
+        流式产出的 updates 数据块
     """
-    human_message = HumanMessage(content=query)
+    content = user_content if user_content is not None else query
+    human_message = HumanMessage(content=content)
     config = invoke_config(thread_id, user_id=user_id)
     context = Context(model=model_name, api_key=api_key,
                       thread_id=thread_id, user_id=user_id)

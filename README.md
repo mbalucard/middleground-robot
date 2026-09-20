@@ -129,24 +129,24 @@ cmd 分流
 
 说明：
 
-- `Context.model` 可指定 `deepseek`、`minimax`、`minimax_m3` 或 `deepseek-flash`
-- 有图消息默认走 `deepseek-flash`；可切到 `minimax_m3`
+- `Context.model` / `model_label` 可指定：`deepseek`、`minimax_m27`、`minimax_m3`、`aihubmix_minimax_m27`、`aihubmix_minimax_m3`
+- `deepseek` 对应实际模型名 `deepseek-flash`；有图时需搭配 `provider=openai`
 - `DynamicModelSelectionMiddleware` 已实现，当前默认未启用
 
 ### 识图 provider（`openai` / `anthropic`）
 
-多模态 content 拼装与 provider → 模型映射在 `robot/tools/message_content.py`。企微侧 `_handle_vision_flow` 默认：
+多模态 content 拼装在 `robot/tools/message_content.py`。企微侧 `_handle_vision_flow` 默认 `provider="openai"`。
 
-```python
-provider: Literal["openai", "anthropic"] = "openai"
-```
-
-| `provider` | content 协议 | `Context.model` | 实际模型 |
+| `provider` | content 协议 | `model_label` | 实际模型 |
 |---|---|---|---|
-| `openai`（默认） | OpenAI `image_url` + `data:` URL | `deepseek-flash` | `deepseek-v4-flash-vision-exp` |
-| `anthropic` | Anthropic `image` + `source.base64` | `minimax_m3` | MiniMax-M3 |
+| `openai` | OpenAI `image_url` + `data:` URL | `deepseek` | deepseek-flash |
+| `anthropic` | Anthropic `image` + `source.base64` | `minimax_m3` / `aihubmix_minimax_m3` | MiniMax-M3 |
 
-注意：这里的 `anthropic` **不是** DeepSeek 的 Anthropic 兼容端点，而是「Anthropic 风格多模态 content + MiniMax-M3」。切换识图后端时，改 `_handle_vision_flow` 的 `provider` 即可；纯图 Redis 挂起只存 `{media_type, data}`，与协议无关。
+注意：这里的 `anthropic` **不是** DeepSeek 的 Anthropic 兼容端点，而是「Anthropic 风格多模态 content + MiniMax-M3」。纯图 Redis 挂起只存 `{media_type, data}`，与协议无关。
+
+### FastAPI 图文（`/agent/run_agent/invoke` · `/stream`）
+
+一次 JSON 提交文字 + 图（`images[].data` 为 base64 或 data URL，JPEG/PNG/GIF/WEBP，最多 10 张）。有图时 `provider` 必填，且须与上表白名单一致；业务库 `query` 存为 `[图片] {原文}`，本版不落原图。校验逻辑见 `utils/api_utils/vision_request.py`。
 
 ### 非 vision 回合剥图
 

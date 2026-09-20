@@ -23,7 +23,11 @@ from robot.agents.models import (
 
 def _is_vision_model(model: Any) -> bool:
     """是否为支持图片输入的模型实例。"""
-    return model is deepseek_model or model is minimax_model_M3
+    return (
+        model is deepseek_model
+        or model is minimax_model_M3
+        or model is aihubmix_minimax_m3
+    )
 
 
 def _prepare_request(request: ModelRequest, model: Any) -> ModelRequest:

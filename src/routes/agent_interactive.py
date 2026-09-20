@@ -6,7 +6,7 @@ Agent交互路由
     - run_agent_interrupts_judge_stream: 中断恢复流式运行智能体请求
 """
 import json
-from fastapi import APIRouter, HTTPException, Request, Header, BackgroundTasks
+from fastapi import APIRouter, Request, Header, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from utils.logger_manager import LoggerManager
@@ -14,6 +14,7 @@ from utils.api_utils.request_models import RunAgentRequest, RunAgentInterruptsJu
 from utils.api_utils.api_background_tasks import agent_storage_background_task, agent_storage_stream_background_task
 from utils.api_utils.data_processing import agent_message_to_dict
 from utils.api_utils.db_execute import UserThreadExecute, UserThreadMessageExecute, MessageToolCallsExecute
+from utils.api_utils.vision_request import VisionRequestError, prepare_vision_turn
 from robot.tools.general_tool import new_id
 
 from robot.agents.agent_invoke import run_agent, interrypts_judge, run_agent_astream, interrypts_judge_astream
@@ -23,6 +24,25 @@ from typing import Optional
 logger = LoggerManager.get_logger(name='agent_interactive')
 
 router = APIRouter(prefix='/agent', tags=['Agent'])
+
+
+def _vision_error_response(agent_args: dict, message: str) -> dict:
+    """
+    图文校验失败时的统一错误响应
+    Args:
+        agent_args(dict): 智能体参数
+        message(str): 错误文案
+    Returns:
+        dict: 与线程不存在等错误同结构的响应
+    """
+    return {
+        "success": False,
+        "agent_args": agent_args,
+        "total": 0,
+        "data": [],
+        "data_type": "error",
+        "message": message,
+    }
 
 
 @router.get("/")
@@ -62,6 +82,21 @@ async def run_agent_invoke(
         "message_id": message_id,
         "model_label": model_label,
     }
+    # 图文校验
+    try:
+        prepared = prepare_vision_turn(
+            query=query,
+            model_label=model_label,
+            images=request.images,
+            provider=request.provider,
+        )
+    except VisionRequestError as e:
+        return _vision_error_response(agent_args, e.user_message)
+
+    query_for_db = prepared.query_for_db
+    model_label = prepared.model_label
+    agent_args["model_label"] = model_label
+
     # 检查会话线程是否存在
     is_exist = await user_thread_execute.check_user_thread(
         user_id=user_id,
@@ -80,13 +115,14 @@ async def run_agent_invoke(
     # 运行智能体请求
     result = await run_agent(
         agent=state.agent,
-        query=query,
+        query=query_for_db,
         thread_id=thread_id,
         message_id=message_id,
         user_id=user_id,
         model_name=model_label,
         api_key=api_key,
         session_redis=state.session_redis,
+        user_content=prepared.user_content,
     )
     messages_value = result.value["messages"]
     # 获取本轮用户消息的起点
@@ -123,7 +159,7 @@ async def run_agent_invoke(
         user_id=user_id,
         thread_id=thread_id,
         message_id=message_id,
-        query=query,
+        query=query_for_db,
         model_label=model_label,
         messages=messages,
         current_turn=current_turn,
@@ -266,6 +302,31 @@ async def run_agent_stream(
         "message_id": message_id,
         "model_label": model_label,
     }
+    try:
+        prepared = prepare_vision_turn(
+            query=query,
+            model_label=model_label,
+            images=request.images,
+            provider=request.provider,
+        )
+    except VisionRequestError as e:
+        err_message = e.user_message
+
+        async def vision_error_generate():
+            yield json.dumps(
+                _vision_error_response(agent_args, err_message),
+                ensure_ascii=False,
+                default=str,
+            ) + "\n"
+        return StreamingResponse(
+            vision_error_generate(), media_type="application/x-ndjson"
+        )
+
+    query_for_db = prepared.query_for_db
+    model_label = prepared.model_label
+    agent_args["model_label"] = model_label
+    user_content = prepared.user_content
+
     # 检查会话线程是否存在
     is_exist = await user_thread_execute.check_user_thread(
         user_id=user_id,
@@ -288,13 +349,14 @@ async def run_agent_stream(
         order_num = 0
         async for chunk in run_agent_astream(
             agent=state.agent,
-            query=query,
+            query=query_for_db,
             thread_id=thread_id,
             user_id=user_id,
             message_id=message_id,
             model_name=model_label,
             api_key=api_key,
             session_redis=state.session_redis,
+            user_content=user_content,
         ):
             order_num += 1
             if chunk.get("model"):
@@ -350,7 +412,7 @@ async def run_agent_stream(
             user_id=user_id,
             thread_id=thread_id,
             message_id=message_id,
-            query=query,
+            query=query_for_db,
             model_label=model_label,
             messages=ai_messages,
             tool_calls_list=tool_calls_list,
