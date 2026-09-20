@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
-ModelLabel = Literal["deepseek", "minimax_m27", "minimax_m3", "deepseek_vision", "aihubmix_minimax_m27", "aihubmix_minimax_m3"]
+ModelLabel = Literal["deepseek", "minimax_m27", "minimax_m3",
+                     "aihubmix_minimax_m27", "aihubmix_minimax_m3"]
+
 
 @dataclass
 class Context:
@@ -36,5 +38,5 @@ def invoke_config(thread_id: str, user_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 调用配置
     """
-    config = {"configurable": {"thread_id": thread_id,"user_id": user_id}}
+    config = {"configurable": {"thread_id": thread_id, "user_id": user_id}}
     return config

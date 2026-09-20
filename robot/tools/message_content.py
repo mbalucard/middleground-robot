@@ -48,9 +48,9 @@ def vision_model_name(provider: VisionProvider) -> str:
     Args:
         provider(str): 识图协议风格, openai / anthropic
     Returns:
-        str: 模型名称 deepseek_vision / minimax_m3
+        str: 模型名称 deepseek-flash / minimax_m3
     """
-    return "deepseek_vision" if provider == "openai" else "minimax_m3"
+    return "deepseek" if provider == "openai" else "minimax_m3"
 
 
 def build_vision_user_content(
@@ -64,7 +64,7 @@ def build_vision_user_content(
         text_prompt(str): 文本提示
         image_payloads(list[dict]): 图片 payload 列表, 每项含 media_type / data
         provider(str): 识图协议风格, default="openai"
-            - openai: OpenAI Chat Completions 风格（DeepSeek Vision）
+            - openai: OpenAI Chat Completions 风格（deepseek-flash）
             - anthropic: Anthropic Messages 风格（MiniMax-M3）
     Returns:
         list[dict]: HumanMessage 可用的 content 块列表

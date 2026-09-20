@@ -41,7 +41,7 @@ async def run_agent(
         user_id(str): 用户ID, default="1001"
         message_id(str): 消息ID, default=None
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax_m27 / minimax_m3 / deepseek_vision / aihubmix_minimax_m27
+            - deepseek / minimax_m27 / minimax_m3 /aihubmix_minimax_m27
         api_key(str): 通行密匙 default=None
         session_redis(Optional[SessionRedis]): 会话Redis default=None
     Returns:

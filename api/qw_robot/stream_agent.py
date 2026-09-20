@@ -35,7 +35,7 @@ async def agent_astream(
         thread_id(str): 线程ID
         user_id(str): 用户ID
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax_m27 / minimax_m3 / deepseek_vision / aihubmix_minimax_m27
+            - deepseek / minimax_m27 / minimax_m3 / aihubmix_minimax_m27
         api_key(Optional[str]): 通行密匙, default=None
         message_id(Optional[str]): 消息ID, default=None
         redis_client(Optional[redis.Redis]): redis客户端, default=None

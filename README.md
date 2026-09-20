@@ -129,8 +129,8 @@ cmd 分流
 
 说明：
 
-- `Context.model` 可指定 `deepseek`、`minimax`、`minimax_m3` 或 `deepseek_vision`
-- 有图消息默认走 `deepseek_vision`；可切到 `minimax_m3`
+- `Context.model` 可指定 `deepseek`、`minimax`、`minimax_m3` 或 `deepseek-flash`
+- 有图消息默认走 `deepseek-flash`；可切到 `minimax_m3`
 - `DynamicModelSelectionMiddleware` 已实现，当前默认未启用
 
 ### 识图 provider（`openai` / `anthropic`）
@@ -143,7 +143,7 @@ provider: Literal["openai", "anthropic"] = "openai"
 
 | `provider` | content 协议 | `Context.model` | 实际模型 |
 |---|---|---|---|
-| `openai`（默认） | OpenAI `image_url` + `data:` URL | `deepseek_vision` | `deepseek-v4-flash-vision-exp` |
+| `openai`（默认） | OpenAI `image_url` + `data:` URL | `deepseek-flash` | `deepseek-v4-flash-vision-exp` |
 | `anthropic` | Anthropic `image` + `source.base64` | `minimax_m3` | MiniMax-M3 |
 
 注意：这里的 `anthropic` **不是** DeepSeek 的 Anthropic 兼容端点，而是「Anthropic 风格多模态 content + MiniMax-M3」。切换识图后端时，改 `_handle_vision_flow` 的 `provider` 即可；纯图 Redis 挂起只存 `{media_type, data}`，与协议无关。
