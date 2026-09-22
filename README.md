@@ -31,7 +31,7 @@
 - 群聊纯图片（`image`）企微通常不回调；请用 @机器人 + 图文（`mixed`）或单聊发图
 - 纯图挂起满 5 张后拒绝再追加纯图；发 `mixed` 仍可与挂起图合并作答（合计超过 API 上限 10 张会在企微侧提示）
 - 不支持机器人回复图片；文件、语音、视频等仍返回“暂不支持”
-- 企微侧中断（interrupt）暂仅固定提示，尚未做审批恢复交互
+- 企微侧工具 interrupt：单聊出按钮审批卡（同意/拒绝；多工具含全部同意/拒绝）；群聊仅提示无审批权限；审批中再发文本/图文会自动拒绝原审批；恢复结果经 `aibot_send_msg` markdown 推送
 - 运行依赖企业微信、PostgreSQL、Redis、FastAPI 进程，以及模型相关密钥
 - 销售/店铺类工具依赖额外的 MySQL 数据源；MCP 工具依赖对应服务 URL
 
@@ -59,9 +59,11 @@ middleground-robot/
 │       ├── session_management.py # /session 会话线程
 │       └── memory_management.py  # /memory 长期记忆与会话详情
 ├── api/qw_api_robot/
-│   ├── message_processing.py     # 消息回调、流式响应、图文流程、心跳
-│   ├── api_client.py             # HTTP 调 FastAPI（session create / agent stream）
-│   ├── stream_agent.py           # NDJSON → 企微展示文案
+│   ├── message_processing.py     # 消息回调、流式响应、图文流程、心跳、审批卡
+│   ├── api_client.py             # HTTP 调 FastAPI（session / agent stream / interrupts_judge）
+│   ├── stream_agent.py           # NDJSON → 企微展示事件（text / interrupt）
+│   ├── interrupt_draft.py        # 审批草稿（挂 qw_api_thread Hash）
+│   ├── interrupt_card.py         # 审批卡片结构
 │   ├── media_handler.py          # 企微图片下载与 AES 解密
 │   ├── pending_images.py         # 纯图 Redis 挂起队列
 │   ├── mes_busy.py               # 单聊消息忙锁
@@ -115,6 +117,9 @@ cmd 分流
             ├─ image → 挂起队列，返回就绪话术
             ├─ text / mixed → 合并挂起图则带 images 调 API，否则纯文本调 API
             └─ POST /agent/run_agent/stream → 解析 NDJSON → 企微流式刷新
+               └─ 若 data_type=interrupt（单聊）→ finish stream → 被动 template_card 审批
+                  └─ template_card_event → update 卡 → 凑齐后 POST interrupts_judge/stream
+                     → aibot_send_msg markdown 回结果（再 interrupt 则主动推下一张卡）
 
 FastAPI（fastapi_main）
     ├─ 校验会话 / 图文
@@ -168,7 +173,7 @@ FastAPI（fastapi_main）
 
 企微适配侧：
 
-- `qw_api_thread:{userid}`：缓存当前 API `thread_id`（TTL 约 600 秒，过期后重新 create）
+- `qw_api_thread:{userid}`：缓存当前 API `thread_id`（TTL 约 600 秒，过期后重新 create）；Hash 字段 `interrupt_draft` 存工具审批草稿（逻辑过期 `expires_at` 600 秒）
 - `pending_images:{userid}:{thread_id}`：纯图挂起
 - `mes_busy:{userid}:{thread_id}`：单聊忙锁
 

@@ -15,7 +15,7 @@ from utils.logger_manager import LoggerManager
 from utils.redis_link import RedisManager
 
 r_link = RedisManager()
-logger = LoggerManager.get_logger(name="qw_api_general_tools")
+logger = LoggerManager.get_logger(name="general_tools")
 
 # 企微侧「当前会话」映射 TTL；过期后重新 create，等价于新开对话
 API_THREAD_TTL_SECONDS = 600

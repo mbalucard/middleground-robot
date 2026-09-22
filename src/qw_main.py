@@ -15,6 +15,7 @@ from api.qw_api_robot.general_tools import (
 )
 from api.qw_api_robot.message_processing import (
     handle_msg_callback,
+    handle_template_card_event,
     heartbeat_loop,
 )
 from configs.api_config import QywxBotConfig
@@ -29,14 +30,16 @@ logger = LoggerManager.get_logger(name="qw_main")
 
 def _log_task_exception(task: asyncio.Task) -> None:
     """
-    记录 handle_msg_callback 任务异常
+    记录后台任务异常
+    Args:
+        task: asyncio.Task
     """
     try:
         exc = task.exception()
     except asyncio.CancelledError:
         return
     if exc:
-        logger.exception(f"handle_msg_callback 任务异常: {exc}")
+        logger.exception(f"后台任务异常: {exc}")
 
 
 async def main() -> None:
@@ -89,6 +92,11 @@ async def main() -> None:
                                 },
                             },
                         )
+                    elif eventtype == "template_card_event":
+                        task = asyncio.create_task(
+                            handle_template_card_event(ws, msg)
+                        )
+                        task.add_done_callback(_log_task_exception)
                     elif eventtype == "disconnected_event":
                         logger.warning("连接被踢下线，需要重连")
                         print("连接被踢下线，需要重连")

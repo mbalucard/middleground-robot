@@ -2,6 +2,7 @@
 HTTP 调用 FastAPI Agent / Session
     - create_session_thread: 创建会话线程
     - stream_run_agent: 流式运行智能体（NDJSON）
+    - stream_interrupts_judge: 中断恢复流式（NDJSON）
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import httpx
 from configs.api_config import APIConfig
 from utils.logger_manager import LoggerManager
 
-logger = LoggerManager.get_logger(name="qw_api_client")
+logger = LoggerManager.get_logger(name="api_client")
 
 VisionProvider = Literal["openai", "anthropic"]
 
@@ -125,4 +126,58 @@ async def stream_run_agent(
         raise ApiClientError("服务暂时不可用，请稍后重试", cause=e) from e
     except Exception as e:
         logger.exception(f"流式调用异常: {e}")
+        raise ApiClientError("处理失败，请稍后重试", cause=e) from e
+
+
+async def stream_interrupts_judge(
+        *,
+        user_id: str,
+        thread_id: str,
+        message_id: str,
+        decides: list[str],
+        is_all_decides: bool = False,) -> AsyncIterator[dict[str, Any]]:
+    """
+    中断恢复流式运行智能体，逐行产出 NDJSON 事件
+    Args:
+        user_id(str): 用户ID
+        thread_id(str): 会话线程ID
+        message_id(str): 消息ID
+        decides(list): 决策列表 approve/reject
+        is_all_decides(bool): 是否全部一致决策, default=False
+    Returns:
+        异步迭代 NDJSON 解析后的 dict
+    """
+    url = f"{_base_url()}/agent/run_agent/interrupts_judge/stream"
+    payload: dict[str, Any] = {
+        "user_id": user_id,
+        "thread_id": thread_id,
+        "message_id": message_id,
+        "decides": decides,
+        "is_all_decides": is_all_decides,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT, trust_env=False) as client:
+            async with client.stream("POST", url, json=payload) as resp:
+                if resp.status_code >= 400:
+                    text = (await resp.aread()).decode("utf-8", errors="replace")
+                    logger.error(
+                        f"stream_interrupts_judge HTTP {resp.status_code}: {text[:500]}"
+                    )
+                    raise ApiClientError("服务暂时不可用，请稍后重试")
+                async for line in resp.aiter_lines():
+                    if not line or not line.strip():
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        logger.warning(f"跳过非法 NDJSON 行: {line[:200]}")
+                        continue
+    except ApiClientError:
+        raise
+    except httpx.HTTPError as e:
+        logger.error(f"中断恢复流式调用失败: {e}")
+        raise ApiClientError("服务暂时不可用，请稍后重试", cause=e) from e
+    except Exception as e:
+        logger.exception(f"中断恢复流式调用异常: {e}")
         raise ApiClientError("处理失败，请稍后重试", cause=e) from e

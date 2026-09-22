@@ -6,7 +6,7 @@ import json
 from utils.redis_link import RedisManager
 from utils.logger_manager import LoggerManager
 
-logger = LoggerManager.get_logger(name=__name__)
+logger = LoggerManager.get_logger(name="session_redis")
 
 
 class SessionRedis(RedisManager):

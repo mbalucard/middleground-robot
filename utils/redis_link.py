@@ -7,7 +7,7 @@ import redis.asyncio as redis
 from configs.service_config import ConfigRedis
 from utils.logger_manager import LoggerManager
 
-logger = LoggerManager.get_logger(name=__name__)
+logger = LoggerManager.get_logger(name="redis_link")
 
 
 class RedisManager:

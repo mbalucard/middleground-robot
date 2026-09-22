@@ -19,7 +19,7 @@ from langgraph.runtime import Runtime
 from utils.logger_manager import LoggerManager
 
 # 设置日志
-logger = LoggerManager.get_logger(name=__name__)
+logger = LoggerManager.get_logger(name="message_tool")
 
 @before_model
 def trimmed_messages_hook(state: AgentState, runtime: Runtime):

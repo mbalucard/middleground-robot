@@ -1,6 +1,7 @@
 """
 通过 HTTP API 流式运行智能体，并转为企微展示文案
-    - agent_astream: 流式产出文本片段（回答/思考/工具提示/中断）
+    - agent_astream: 流式产出结构化事件（text / interrupt）
+    - format_agent_chunk: 将 API agent 消息转为展示片段
 """
 
 from __future__ import annotations
@@ -12,14 +13,13 @@ from api.qw_api_robot.api_client import (
     VisionProvider,
     stream_run_agent,
 )
+from api.qw_api_robot.interrupt_card import parse_tools_from_interrupt
 from utils.logger_manager import LoggerManager
 
-logger = LoggerManager.get_logger(name="qw_api_stream_agent")
-
-INTERRUPT_REPLY = "当前操作已中断，中断逻辑还未完成。"
+logger = LoggerManager.get_logger(name="stream_agent")
 
 
-def _format_agent_chunk(data: dict[str, Any] | None) -> list[str]:
+def format_agent_chunk(data: dict[str, Any] | None) -> list[str]:
     """
     将 API agent 消息转为企微展示片段
     Args:
@@ -66,6 +66,31 @@ def _format_agent_chunk(data: dict[str, Any] | None) -> list[str]:
     return out
 
 
+# 兼容旧名
+_format_agent_chunk = format_agent_chunk
+
+
+def _interrupt_event_from_api(event: dict[str, Any]) -> dict[str, Any]:
+    """
+    将 API interrupt NDJSON 转为上层事件
+    Args:
+        event(dict): API 流式事件
+    Returns:
+        kind=interrupt 的结构化事件
+    """
+    agent_args = event.get("agent_args") or {}
+    data = event.get("data") if isinstance(event.get("data"), dict) else {}
+    tools = parse_tools_from_interrupt(data)
+    message_id = str(agent_args.get("message_id") or "")
+    return {
+        "kind": "interrupt",
+        "message_id": message_id,
+        "tools": tools,
+        "agent_args": agent_args,
+        "data": data,
+    }
+
+
 async def agent_astream(
         *,
         question: str,
@@ -73,9 +98,9 @@ async def agent_astream(
         user_id: str,
         model_name: str = "deepseek",
         images: Optional[list[dict[str, Any]]] = None,
-        provider: Optional[VisionProvider] = None,) -> AsyncIterator[str]:
+        provider: Optional[VisionProvider] = None,) -> AsyncIterator[dict[str, Any]]:
     """
-    流式运行智能体（HTTP API），产出企微展示文案
+    流式运行智能体（HTTP API），产出结构化事件
     Args:
         question(str): 用户问题（有图时不可为空）
         thread_id(str): API 会话线程ID
@@ -84,7 +109,7 @@ async def agent_astream(
         images(list): API 图片列表 [{data, media_type?}], default=None
         provider: 有图时必填, default=None
     Returns:
-        异步迭代文本片段
+        异步迭代 {"kind":"text","text":...} 或 {"kind":"interrupt",...}
     """
     image_list = list(images or [])
     try:
@@ -97,26 +122,32 @@ async def agent_astream(
             provider=provider,
         ):
             if not event.get("success", True):
-                yield str(event.get("message") or "请求失败，请稍后重试")
+                yield {
+                    "kind": "text",
+                    "text": str(event.get("message") or "请求失败，请稍后重试"),
+                }
                 return
 
             data_type = event.get("data_type")
             if data_type == "end":
                 return
             if data_type == "error":
-                yield str(event.get("message") or "请求失败，请稍后重试")
+                yield {
+                    "kind": "text",
+                    "text": str(event.get("message") or "请求失败，请稍后重试"),
+                }
                 return
             if data_type == "interrupt":
-                yield INTERRUPT_REPLY
+                yield _interrupt_event_from_api(event)
                 return
             if data_type == "tool":
                 continue
             if data_type == "agent":
-                for fragment in _format_agent_chunk(event.get("data")):
-                    yield fragment
+                for fragment in format_agent_chunk(event.get("data")):
+                    yield {"kind": "text", "text": fragment}
                 continue
             if data_type == "unknown":
                 logger.warning(f"未知流式数据类型: {event}")
                 continue
     except ApiClientError as e:
-        yield e.user_message
+        yield {"kind": "text", "text": e.user_message}
