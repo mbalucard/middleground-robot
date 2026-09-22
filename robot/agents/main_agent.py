@@ -8,16 +8,18 @@ from pathlib import Path
 from deepagents import create_deep_agent, FilesystemPermission
 from deepagents.backends import StateBackend
 from deepagents.middleware.summarization import create_summarization_tool_middleware
+
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain.agents.middleware import ModelFallbackMiddleware
+
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.store.postgres import AsyncPostgresStore
 
 from configs.general_config import FilePath
 from robot.agents.agent_backend import make_backend
-from robot.agents.models import deepseek_model
+from robot.agents.models import deepseek_model, minimax_model_M27
 from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
-
 from robot.agent_tools.ordinary_tool import internet_search, get_current_date
 from robot.agent_tools.sale_tools import get_shop_sale_data, list_shops_with_sales
 from robot.agent_tools.shop_info_tools import get_shop_info
@@ -48,13 +50,14 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
             mode="deny"
         )
     ]
-
+    # 中间件列表
     model_type = "manual"  # 模型中间件参数
     model_middleware = get_model_middleware(model_type)
     tool_backend = StateBackend()  # 工具摘要中间件参数
     middleware = [
         create_summarization_tool_middleware(
-            deepseek_model, tool_backend)  # 工具摘要中间件
+            deepseek_model, tool_backend),  # 工具摘要中间件
+        ModelFallbackMiddleware(minimax_model_M27),  # 模型降级中间件
     ]
     if model_middleware:
         middleware.append(model_middleware)
@@ -80,7 +83,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
         tools=tools,
         middleware=middleware,
         context_schema=Context,
-        interrupt_on={"internet_search":True}  
+        interrupt_on={"internet_search": True}
     )
     return agent
 
