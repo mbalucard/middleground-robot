@@ -18,7 +18,7 @@ r_link = RedisManager()
 logger = LoggerManager.get_logger(name="general_tools")
 
 # 企微侧「当前会话」映射 TTL；过期后重新 create，等价于新开对话
-API_THREAD_TTL_SECONDS = 600
+API_THREAD_TTL_SECONDS = 1800
 
 # 长连接并发任务时，主循环统一收包，按 req_id 投递给等待方
 _pending_responses: dict[str, asyncio.Future] = {}
