@@ -20,9 +20,13 @@ from robot.agents.agent_backend import make_backend
 from robot.agents.models import deepseek_model, minimax_model_M27
 from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
+
 from robot.agent_tools.ordinary_tool import internet_search, get_current_date
-from robot.agent_tools.sale_tools import get_shop_sale_data, list_shops_with_sales
-from robot.agent_tools.shop_info_tools import get_shop_info
+from robot.agent_tools.sql_tools.sale_tools import get_shop_sale_data, list_shops_with_sales
+from robot.agent_tools.sql_tools.shop_info_tools import get_shop_info
+from robot.agent_tools.erp_tools.inventory import get_inventory_details
+from robot.agent_tools.erp_tools.shop_info import get_warehouse_info
+from robot.agent_tools.erp_tools.goods import get_goods_info
 from robot.agent_tools.mcp_server_tools import QwMcp
 
 _SYS_MESSAGE_PATH = Path(FilePath.ROOT_PATH) / \
@@ -64,9 +68,9 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
     # MCP工具
     qw_mcp = QwMcp()
     mcp_tools = await qw_mcp.get_tools()
-
-    tools = [internet_search, get_current_date,
-             get_shop_sale_data, get_shop_info, list_shops_with_sales, *mcp_tools]
+    sql_tools = [get_shop_sale_data, get_shop_info, list_shops_with_sales]
+    erp_tools = [get_inventory_details, get_warehouse_info, get_goods_info]
+    tools = [internet_search, get_current_date, *mcp_tools, *erp_tools]
 
     sys_message = _SYS_MESSAGE_PATH.read_text(encoding="utf-8")
     system_prompt = SystemMessage(content=sys_message)
