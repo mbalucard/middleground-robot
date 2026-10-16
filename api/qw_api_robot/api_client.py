@@ -14,7 +14,7 @@ import httpx
 
 from configs.api_config import APIConfig
 from utils.logger_manager import LoggerManager
-from utils.virtue_bright_erp.auth_tool import get_authorization
+from utils.virtue_bright_erp.auth_tool import get_authorization_test
 
 logger = LoggerManager.get_logger(name="api_client")
 
@@ -100,7 +100,7 @@ async def stream_run_agent(
         "model_label": model_label,
         "images": images or [],
     }
-    authorization = await get_authorization()  #! 临时方案
+    authorization = await get_authorization_test()  #! 临时方案
     headers = {"authorization": authorization,}
     if provider is not None:
         payload["provider"] = provider
@@ -151,7 +151,7 @@ async def stream_interrupts_judge(
         异步迭代 NDJSON 解析后的 dict
     """
     url = f"{_base_url()}/agent/run_agent/interrupts_judge/stream"
-    authorization = await get_authorization()  #! 临时方案
+    authorization = await get_authorization_test()  #! 临时方案
     headers = {"authorization": authorization,}
     payload: dict[str, Any] = {
         "user_id": user_id,

@@ -68,10 +68,9 @@ async def change_organ(username: str, authorization: str, organ_id: int) -> dict
         return {"error": "用户未登录"}
 
 
-async def get_authorization():
+async def get_authorization_test():
     username = os.getenv("TEST_USERNAME")
     password = os.getenv("TEST_PASSWORD")
-    tenant_id = os.getenv("TEST_TENANT_ID")
     organ_id = os.getenv("TEST_ORGAN_ID")
 
     auth = await get_auth_data(username, password)
@@ -84,5 +83,5 @@ async def get_authorization():
 if __name__ == "__main__":
     import asyncio
     
-    data = asyncio.run(get_authorization())
+    data = asyncio.run(get_authorization_test())
     print("data:", data)
