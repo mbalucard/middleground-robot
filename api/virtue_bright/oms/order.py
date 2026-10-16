@@ -159,8 +159,7 @@ async def get_order_detail(
 
 async def list_order_source(
     authorization: str,
-    tenant_id: Optional[int] = None,
-) -> dict:
+    tenant_id: Optional[int] = None,) -> dict:
     """
     获取订单来源列表
     Args:

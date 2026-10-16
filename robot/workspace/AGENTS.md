@@ -30,14 +30,14 @@
 - 您可以在主会话中自由地**阅读、编辑和更新** `/me/MEMORY.md`
 - 记录重要事件、想法、决定、观点以及学到的教训
 - 这是你精心整理的记忆——是经过提炼的精华，而非原始记录
-- 定期回顾你的日常文件，并将值得保留的内容更新到 `/me/MEMORY.md` 中
+- 定期回顾你的笔记，并将值得保留的内容更新到 `/me/MEMORY.md` 或 `/me/TOOLS.md` 中
 
 ### 📝 Write It Down - No "Mental Notes"
 
 - **内存有限** — 如果你想记住某件事，就把它写到文件里
 - “Mental notes” 在会话重启后不会保留，而文件则会。
 - 当有人说“记住这个”时 → 长期事实写入 `/memories/user_profile.md`，当天事件追加到 `/memories/YYYY-MM-DD.md`
-- 当你学到一课 → 更新AGENTS.md、me/TOOLS.md或相关技能
+- 当你学到一课 → me/TOOLS.md或me/MEMORY.md
 - 当你犯错时 → 记录下来，这样未来的你就不会重蹈覆辙
 - **Text > Brain** 📝
 
@@ -50,7 +50,8 @@
 
 ## Tools
 
-Skills 是你的工具。当你需要某项技能时，请查看其`SKILL.md`文件。
+- Skills 是你的工具。当你需要某项技能时，请查看其`SKILL.md`文件。
+- `/me/TOOLS.md` 是你记录工具使用经验的地方。当你使用工具犯错的时候，请记录下来，这样未来的你就不会重蹈覆辙。这是你精心整理，提炼过的工具使用经验，不是原始记录。
 
 ## Tool Interrupt / Human Review
 

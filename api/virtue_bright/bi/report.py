@@ -26,8 +26,7 @@ async def inventory_report(
     codes: List[str] = [],
     mnemonic_code: Optional[str] = None,
     shop_type: List[str] = ["1"],
-    warehouse_id: List[str] = []
-):
+    warehouse_id: List[str] = []):
     """
     库存明细报表
     Args:
@@ -314,9 +313,7 @@ async def warehouse_information(
     tenant_id: Optional[int] = None,
     current: int = 1,
     size: int = 20,
-    keyword: Optional[str] = None,
-
-):
+    keyword: Optional[str] = None,):
     """
     仓库信息
     Args:
