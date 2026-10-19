@@ -2,6 +2,7 @@
 商品模块
     - inventory_report: 库存明细报表
     - warehouse_information: 仓库信息
+    - store_retail_report: 门店零售报表
 """
 
 from httpx import AsyncClient
@@ -11,7 +12,7 @@ from configs.api_config import deming_env
 from api.virtue_bright.general_tools import timestamp, get_current_date, get_date_start_and_end_time
 from utils.logger_manager import LoggerManager
 
-logger = LoggerManager.get_logger(name=__name__)
+logger = LoggerManager.get_logger(name="bi_report")
 
 yaoud_env = deming_env
 base_url = f"{yaoud_env['url']}/bi/report"
@@ -317,36 +318,38 @@ async def inventory_report(
 
     data_dict = response.json()
     #! 就是因为写接口的人偷懒不写total和pages，所以这里需要自己计算
-    if data_dict.get("data").get("records") and data_dict.get("data").get("total") == 0:
-        count_data = await _report_count(
-            authorization=authorization,
-            conditions=conditions,
-            reportFieldIds=reportFieldIds,
-            tenant_id=tenant_id,
-            report_code=report_code,
-        )
-        total = count_data.get("data").get("total")
+    if data_dict.get("data").get("records"):
+        if data_dict.get("data").get("total") == 0:
+            count_data = await _report_count(
+                authorization=authorization,
+                conditions=conditions,
+                reportFieldIds=reportFieldIds,
+                tenant_id=tenant_id,
+                report_code=report_code,
+            )
+            total = count_data.get("data").get("total")
 
-        if total > 0:
-            data_dict['data']['total'] = total
-            data_dict['data']['pages'] = total // size + 1
+            if total > 0:
+                data_dict['data']['total'] = total
+                data_dict['data']['pages'] = total // size + 1
+    
+        # 计算总合计
+        if not data_dict.get("data").get("totalSummary"):
+            sum_data = await _report_sum(
+                authorization=authorization,
+                conditions=conditions,
+                reportFieldIds=reportFieldIds,
+                tenant_id=tenant_id,
+                report_code=report_code,
+            )
+            total_summary = sum_data.get("data").get("totalSummary")
+            if total_summary:
+                data_dict['data']['totalSummary'] = sum_data.get(
+                    "data").get("totalSummary")
 
     if data_dict['data']['size'] != size:
         data_dict['data']['current'] = current
         data_dict['data']['size'] = size
-    # 计算总合计
-    if not data_dict.get("data").get("totalSummary"):
-        sum_data = await _report_sum(
-            authorization=authorization,
-            conditions=conditions,
-            reportFieldIds=reportFieldIds,
-            tenant_id=tenant_id,
-            report_code=report_code,
-        )
-        total_summary = sum_data.get("data").get("totalSummary")
-        if total_summary:
-            data_dict['data']['totalSummary'] = sum_data.get(
-                "data").get("totalSummary")
 
     return data_dict
 
@@ -356,8 +359,7 @@ async def _report_count(
         report_code: str,
         conditions: List[dict],
         reportFieldIds: List[str],
-        tenant_id: Optional[int] = None,
-        ):
+        tenant_id: Optional[int] = None,):
     """
     库存报表条目数
     Args:
@@ -389,8 +391,7 @@ async def _report_sum(
         report_code: str,
         conditions: List[dict],
         reportFieldIds: List[str],
-        tenant_id: Optional[int] = None,
-        ):
+        tenant_id: Optional[int] = None,):
     """
     库存报表合计
     Args:
@@ -451,3 +452,257 @@ async def warehouse_information(
     async with AsyncClient() as client:
         response = await client.get(url, headers=headers, params=params, timeout=TTL)
     return response.json()
+
+
+async def store_retail_report(
+    authorization: str,
+    start_date: str,
+    end_date: str,
+    store_code: List[str] = [],
+    store_type: List[str] = [],
+    belongRegion: List[str] = [],
+    tenant_id: Optional[int] = None,
+    current: int = 1,
+    size: int = 20,
+):
+    """
+    门店零售报表
+    Args:
+        authorization (str): 授权token
+        start_date (str): 开始日期
+            - 格式为YYYY-MM-DD
+        end_date (str): 结束日期
+            - 格式为YYYY-MM-DD
+        store_code (List[str]): 门店编码
+        store_type (List[str]): 门店类型
+            - 1-直营, 2-加盟
+        belongRegion (List[str]): 直属区域ID
+        tenant_id (Optional[int]): 租户ID
+        current (int): 当前页码
+        size (int): 每页大小
+    Returns:
+        dict: 门店零售报表数据
+    """
+    report_code = "32"
+    url = f"{base_url}/query/{report_code}/list"
+    headers = {
+        "authorization": authorization,  # 必须
+        "client-tom": "Y",
+        "tenant-id": str(tenant_id) if tenant_id else "",
+    }
+    conditions = [
+        # 销售日期
+        {
+            "field": "F_1_3973_F",
+            "rule": "between",
+            "val": [
+                start_date,
+                end_date
+            ]
+        },
+        # 门店编码
+        {
+            "field": "F_1_71_F",
+            "rule": "in",
+            "val": store_code
+        },
+        # 门店类型
+        {
+            "field": "F_1_75_F",
+            "rule": "in",
+            "val": store_type
+        },
+        # 商品类型
+        {
+            "field": "F_1_4008_F",
+            "rule": "in",
+            "val": []
+        },
+        # 直属区域
+        {
+            "field": "F_1_1154_F",
+            "rule": "in",
+            "val": belongRegion
+        }
+    ]
+    orderFields = [
+        {
+            "field": "F_3_4714_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4715_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4716_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4721_F",
+            "order": None
+        },
+        {
+            "field": "F_3_33528_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4732_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4735_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4738_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4739_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4736_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4737_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4740_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4745_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4746_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4747_F",
+            "order": None
+        },
+        {
+            "field": "F_3_26031_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4748_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4749_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4750_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4751_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4741_F",
+            "order": None
+        },
+        {
+            "field": "F_3_7505_F",
+            "order": None
+        },
+        {
+            "field": "F_3_7508_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4733_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4742_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4743_F",
+            "order": None
+        },
+        {
+            "field": "F_3_4744_F",
+            "order": None
+        }
+    ]
+
+    reportFieldIds = [
+        "4714",
+        "4715",
+        "4716",
+        "4721",
+        "33528",
+        "4732",
+        "4735",
+        "4738",
+        "4739",
+        "4736",
+        "4737",
+        "4740",
+        "4745",
+        "4746",
+        "4747",
+        "26031",
+        "4748",
+        "4749",
+        "4750",
+        "4751",
+        "4741",
+        "7505",
+        "7508",
+        "4733",
+        "4742",
+        "4743",
+        "4744"
+    ]
+    payload = {
+        "current": current,
+        "size": size,
+        "conditions": conditions,
+        "orderFields": orderFields,
+        "reportFieldIds": reportFieldIds
+    }
+    async with AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=payload, timeout=TTL)
+    data_json = response.json()
+
+    if data_json.get("data").get("records") :
+        if data_json.get("data").get("total") == 0:
+            count_data = await _report_count(
+                authorization=authorization,
+                conditions=conditions,
+                reportFieldIds=reportFieldIds,
+                tenant_id=tenant_id,
+                report_code=report_code,
+            )
+            total = count_data.get("data").get("total")
+            if total > 0:
+                data_json['data']['total'] = total
+                data_json['data']['pages'] = total // size + 1
+
+        if not data_json.get("data").get("totalSummary"):
+            sum_data = await _report_sum(
+                authorization=authorization,
+                conditions=conditions,
+                reportFieldIds=reportFieldIds,
+                tenant_id=tenant_id,
+                report_code=report_code,
+            )
+            total_summary = sum_data.get("data").get("totalSummary")
+            if total_summary:
+                data_json['data']['totalSummary'] = sum_data.get("data").get("totalSummary")
+    if data_json['data']['size'] != size:
+        data_json['data']['current'] = current
+        data_json['data']['size'] = size
+
+    return data_json
