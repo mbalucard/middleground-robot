@@ -46,7 +46,7 @@ async def inventory_report(
         dict: 库存报表数据
     """
     if is_summary:
-        summary = "63"
+        report_code = "63"
         orderFields = [
             {
                 "field": "F_3_6555_F",
@@ -142,7 +142,7 @@ async def inventory_report(
             "6584"
         ]
     else:
-        summary = "61"
+        report_code = "61"
         # 显示字段
         orderFields = [
             {
@@ -275,7 +275,7 @@ async def inventory_report(
             "6313"
         ]
 
-    url = f"{base_url}/query/{summary}/list"
+    url = f"{base_url}/query/{report_code}/list"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
@@ -318,12 +318,12 @@ async def inventory_report(
     data_dict = response.json()
     #! 就是因为写接口的人偷懒不写total和pages，所以这里需要自己计算
     if data_dict.get("data").get("records") and data_dict.get("data").get("total") == 0:
-        count_data = await _inventory_report_count(
+        count_data = await _report_count(
             authorization=authorization,
             conditions=conditions,
             reportFieldIds=reportFieldIds,
             tenant_id=tenant_id,
-            is_summary=is_summary,
+            report_code=report_code,
         )
         total = count_data.get("data").get("total")
 
@@ -336,12 +336,12 @@ async def inventory_report(
         data_dict['data']['size'] = size
     # 计算总合计
     if not data_dict.get("data").get("totalSummary"):
-        sum_data = await _inventory_report_sum(
+        sum_data = await _report_sum(
             authorization=authorization,
             conditions=conditions,
             reportFieldIds=reportFieldIds,
             tenant_id=tenant_id,
-            is_summary=is_summary,
+            report_code=report_code,
         )
         total_summary = sum_data.get("data").get("totalSummary")
         if total_summary:
@@ -351,28 +351,25 @@ async def inventory_report(
     return data_dict
 
 
-async def _inventory_report_count(
+async def _report_count(
         authorization: str,
+        report_code: str,
         conditions: List[dict],
         reportFieldIds: List[str],
         tenant_id: Optional[int] = None,
-        is_summary: bool = True,):
+        ):
     """
     库存报表条目数
     Args:
         authorization (str): 授权token
+        report_code (str): 报表代码
         conditions (List[dict]): 查询条件
         reportFieldIds (List[str]): 报表字段ID
         tenant_id (Optional[int]): 租户ID
-        is_summary (bool): 是否汇总查询
     Returns:
         dict: 库存报表条目数
     """
-    if is_summary:
-        summary = "63"
-    else:
-        summary = "61"
-    url = f"{base_url}/query/{summary}/count"
+    url = f"{base_url}/query/{report_code}/count"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
@@ -387,12 +384,13 @@ async def _inventory_report_count(
     return response.json()
 
 
-async def _inventory_report_sum(
+async def _report_sum(
         authorization: str,
+        report_code: str,
         conditions: List[dict],
         reportFieldIds: List[str],
         tenant_id: Optional[int] = None,
-        is_summary: bool = True,):
+        ):
     """
     库存报表合计
     Args:
@@ -400,15 +398,11 @@ async def _inventory_report_sum(
         conditions (List[dict]): 查询条件
         reportFieldIds (List[str]): 报表字段ID
         tenant_id (Optional[int]): 租户ID
-        is_summary (bool): 是否汇总查询
+        report_code (str): 报表代码
     Returns:
         dict: 库存报表合计
     """
-    if is_summary:
-        summary = "63"
-    else:
-        summary = "61"
-    url = f"{base_url}/query/{summary}/sum"
+    url = f"{base_url}/query/{report_code}/sum"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
