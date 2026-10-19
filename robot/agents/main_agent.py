@@ -23,7 +23,7 @@ from robot.agents.model_context import Context
 
 from robot.agent_tools.ordinary_tool import internet_search, get_current_date
 from robot.agent_tools.sql_tools import get_shop_sale_data, list_shops_with_sales, get_shop_info
-from robot.agent_tools.erp_tools import get_inventory_details,get_warehouse_info,get_goods_info
+from robot.agent_tools.erp_tools import get_inventory_data,get_warehouse_info,get_goods_info
 from robot.agent_tools.mcp_server_tools import QwMcp
 
 _SYS_MESSAGE_PATH = Path(FilePath.ROOT_PATH) / \
@@ -66,7 +66,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
     qw_mcp = QwMcp()
     mcp_tools = await qw_mcp.get_tools()
     sql_tools = [get_shop_sale_data, get_shop_info, list_shops_with_sales]  # 测试用工具，已屏蔽
-    erp_tools = [get_inventory_details, get_warehouse_info, get_goods_info]
+    erp_tools = [get_inventory_data, get_warehouse_info, get_goods_info]
     tools = [internet_search, get_current_date, *mcp_tools, *erp_tools]
 
     sys_message = _SYS_MESSAGE_PATH.read_text(encoding="utf-8")

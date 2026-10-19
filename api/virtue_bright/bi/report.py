@@ -25,10 +25,12 @@ async def inventory_report(
     size: int = 20,
     codes: List[str] = [],
     mnemonic_code: Optional[str] = None,
-    shop_type: List[str] = ["1"],
-    warehouse_id: List[str] = []):
+    shop_type: List[str] = [],
+    warehouse_id: List[str] = [],
+    is_summary: bool = True,
+):
     """
-    库存明细报表
+    库存报表
     Args:
         authorization (str): 授权token
         tenant_id (Optional[int]): 租户ID
@@ -36,15 +38,244 @@ async def inventory_report(
         size (int): 每页大小
         codes (List[str]): 商品编码
         mnemonic_code (Optional[str]): 商品助记码
-        shop_type (List[str]): 门店类型
-            - 1-直营, 2-加盟
+        shop_type (List[str]): 门店类型, 字段为[] 可查询总公司仓库库存
+            - 1-直营, 2-加盟 
         warehouse_id (List[str]): 仓库ID
             - 可在 warehouse_information 接口中查询
     Returns:
-        dict: 库存明细报表数据
+        dict: 库存报表数据
     """
+    if is_summary:
+        summary = "63"
+        orderFields = [
+            {
+                "field": "F_3_6555_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6557_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6556_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6560_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6561_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6562_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6564_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6563_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6576_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6601_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6610_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6613_F",
+                "order": None
+            },
+            {
+                "field": "F_3_17843_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6602_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6567_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6568_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6575_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6584_F",
+                "order": None
+            }
+        ]
+        reportFieldIds = [
+            "6555",
+            "6557",
+            "6556",
+            "6560",
+            "6561",
+            "6562",
+            "6564",
+            "6563",
+            "6576",
+            "6601",
+            "6610",
+            "6613",
+            "17843",
+            "6602",
+            "6567",
+            "6568",
+            "6575",
+            "6584"
+        ]
+    else:
+        summary = "61"
+        # 显示字段
+        orderFields = [
+            {
+                "field": "F_3_7554_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6290_F",
+                "order": None
+            },
+            {
+                "field": "F_3_7556_F",
+                "order": None
+            },
+            {
+                "field": "F_3_7555_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6300_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6302_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6301_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6305_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6306_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6307_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6346_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6309_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6308_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6322_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6354_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6365_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6361_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6645_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6355_F",
+                "order": None
+            },
+            {
+                "field": "F_3_127394_F",
+                "order": None
+            },
+            {
+                "field": "F_3_127395_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6330_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6321_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6312_F",
+                "order": None
+            },
+            {
+                "field": "F_3_6313_F",
+                "order": None
+            }
+        ]
+        # 字段顺序
+        reportFieldIds = [
+            "7554",
+            "6290",
+            "7556",
+            "7555",
+            "6300",
+            "6302",
+            "6301",
+            "6305",
+            "6306",
+            "6307",
+            "6346",
+            "6309",
+            "6308",
+            "6322",
+            "6354",
+            "6365",
+            "6361",
+            "6645",
+            "6355",
+            "127394",
+            "127395",
+            "6330",
+            "6321",
+            "6312",
+            "6313"
+        ]
 
-    url = f"{base_url}/query/61/list"
+    url = f"{base_url}/query/{summary}/list"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
@@ -72,137 +303,7 @@ async def inventory_report(
         # 仓库ID
         {"field": "F_1_600_F", "rule": "in", "val": warehouse_id}
     ]
-    # 显示字段
-    orderFields = [
-        {
-            "field": "F_3_7554_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6290_F",
-            "order": None
-        },
-        {
-            "field": "F_3_7556_F",
-            "order": None
-        },
-        {
-            "field": "F_3_7555_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6300_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6302_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6301_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6305_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6306_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6307_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6346_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6309_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6308_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6322_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6354_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6365_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6361_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6645_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6355_F",
-            "order": None
-        },
-        {
-            "field": "F_3_127394_F",
-            "order": None
-        },
-        {
-            "field": "F_3_127395_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6330_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6321_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6312_F",
-            "order": None
-        },
-        {
-            "field": "F_3_6313_F",
-            "order": None
-        }
-    ]
-    # 字段顺序
-    reportFieldIds = [
-        "7554",
-        "6290",
-        "7556",
-        "7555",
-        "6300",
-        "6302",
-        "6301",
-        "6305",
-        "6306",
-        "6307",
-        "6346",
-        "6309",
-        "6308",
-        "6322",
-        "6354",
-        "6365",
-        "6361",
-        "6645",
-        "6355",
-        "127394",
-        "127395",
-        "6330",
-        "6321",
-        "6312",
-        "6313"
-    ]
+
     payload = {
         "current": current,
         "size": size,
@@ -222,6 +323,7 @@ async def inventory_report(
             conditions=conditions,
             reportFieldIds=reportFieldIds,
             tenant_id=tenant_id,
+            is_summary=is_summary,
         )
         total = count_data.get("data").get("total")
 
@@ -239,6 +341,7 @@ async def inventory_report(
             conditions=conditions,
             reportFieldIds=reportFieldIds,
             tenant_id=tenant_id,
+            is_summary=is_summary,
         )
         total_summary = sum_data.get("data").get("totalSummary")
         if total_summary:
@@ -252,18 +355,24 @@ async def _inventory_report_count(
         authorization: str,
         conditions: List[dict],
         reportFieldIds: List[str],
-        tenant_id: Optional[int] = None,):
+        tenant_id: Optional[int] = None,
+        is_summary: bool = True,):
     """
-    库存明细报表条目数
+    库存报表条目数
     Args:
         authorization (str): 授权token
         conditions (List[dict]): 查询条件
         reportFieldIds (List[str]): 报表字段ID
         tenant_id (Optional[int]): 租户ID
+        is_summary (bool): 是否汇总查询
     Returns:
-        dict: 库存明细报表条目数
+        dict: 库存报表条目数
     """
-    url = f"{base_url}/query/61/count"
+    if is_summary:
+        summary = "63"
+    else:
+        summary = "61"
+    url = f"{base_url}/query/{summary}/count"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
@@ -282,18 +391,24 @@ async def _inventory_report_sum(
         authorization: str,
         conditions: List[dict],
         reportFieldIds: List[str],
-        tenant_id: Optional[int] = None,):
+        tenant_id: Optional[int] = None,
+        is_summary: bool = True,):
     """
-    库存明细报表合计
+    库存报表合计
     Args:
         authorization (str): 授权token
         conditions (List[dict]): 查询条件
         reportFieldIds (List[str]): 报表字段ID
         tenant_id (Optional[int]): 租户ID
+        is_summary (bool): 是否汇总查询
     Returns:
-        dict: 库存明细报表合计
+        dict: 库存报表合计
     """
-    url = f"{base_url}/query/61/sum"
+    if is_summary:
+        summary = "63"
+    else:
+        summary = "61"
+    url = f"{base_url}/query/{summary}/sum"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
@@ -309,11 +424,11 @@ async def _inventory_report_sum(
 
 
 async def warehouse_information(
-    authorization: str,
-    tenant_id: Optional[int] = None,
-    current: int = 1,
-    size: int = 20,
-    keyword: Optional[str] = None,):
+        authorization: str,
+        tenant_id: Optional[int] = None,
+        current: int = 1,
+        size: int = 20,
+        keyword: Optional[str] = None,):
     """
     仓库信息
     Args:
