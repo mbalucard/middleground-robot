@@ -1,6 +1,6 @@
 """
 门店信息模块
-
+    - get_shop_info: 获取门店信息-查询用
 """
 
 from httpx import AsyncClient
@@ -27,7 +27,7 @@ async def get_shop_info(
     tenant_id: Optional[int] = None,
 ):
     """
-    获取门店信息
+    获取门店信息-查询用
     Args:
         authorization (str): 授权token
         current (int): 当前页码

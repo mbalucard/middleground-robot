@@ -2,7 +2,7 @@
 商品模块
     - inventory_report: 库存明细报表
     - warehouse_information: 仓库信息
-    - store_retail_report: 门店零售报表
+    - store_retail_report: 门店零汇总报表
 """
 
 from httpx import AsyncClient
@@ -466,7 +466,7 @@ async def store_retail_report(
     size: int = 20,
 ):
     """
-    门店零售报表
+    门店零汇总报表
     Args:
         authorization (str): 授权token
         start_date (str): 开始日期
