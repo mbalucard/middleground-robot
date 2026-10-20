@@ -1,6 +1,7 @@
 """
-店铺信息工具
+机构信息工具
     - get_warehouse_info: 获取仓库信息
+    - get_shop_available_info: 获取可用门店信息
 """
 
 
@@ -8,8 +9,10 @@ from langchain.tools import tool, ToolRuntime
 from typing import Optional
 from robot.agents.model_context import Context
 
-from api.virtue_bright.bi.report import warehouse_information
-from utils.virtue_bright_erp.data_process.ins_data import warehouse_information_data_process
+from api.virtue_bright.bi import warehouse_information
+from api.virtue_bright.infra import get_shop_info
+from utils.virtue_bright_erp.data_process import warehouse_information_data_process, shop_info_data_process
+
 
 @tool('get_warehouse_info', description='获取仓库信息')
 async def get_warehouse_info(
@@ -52,3 +55,49 @@ async def get_warehouse_info(
         }
     else:
         return {"status": "error", "message": "未找到店铺信息"}
+
+
+@tool('get_shop_available_info', description='获取可用门店信息')
+async def get_shop_available_info(
+    keyword: str,
+    current: int = 1,
+    size: int = 10,
+    tenant_id: Optional[int] = None,
+    runtime: ToolRuntime[Context] = None
+):
+    """
+    获取可用门店信息
+    Args:
+        keyword: 模糊查询
+            - 门店名称/简称、门店编码、助记码
+        current: 当前页
+        size: 每页大小
+        tenant_id: 租户ID
+    Returns:
+        dict: 可用门店信息
+    """
+    authorization = runtime.context.api_key if runtime and runtime.context else None
+    if not authorization:
+        return {"status": "error", "message": "未授权"}
+    data = await get_shop_info(
+        authorization=authorization,
+        keyword=keyword,
+        current=current,
+        size=size,
+        tenant_id=tenant_id
+    )
+    data_json = data.get('data').get('records')
+    if data_json:
+        data_list = shop_info_data_process(data_json)
+        return {
+            "status": "success",
+            "data": data_list,
+            "page_info": {
+                "current": current,
+                "size": size,
+                "pages": data.get('data').get('pages'),
+                "total": data.get('data').get('total'),
+            }
+        }
+    else:
+        return {"status": "error", "message": "未找到可用门店信息"}

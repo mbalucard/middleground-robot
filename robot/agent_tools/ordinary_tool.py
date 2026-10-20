@@ -5,7 +5,7 @@
 """
 
 
-import datetime
+from datetime import datetime
 
 from tavily import TavilyClient
 from configs.model_config import Tavily
@@ -42,9 +42,11 @@ def get_current_date() -> str:
     """
     获取当前日期
     Returns:
-        str: 当前日期，格式为YYYY-MM-DD HH:MM:SS
+        str: 当前日期，格式为YYYY-MM-DD HH:MM:SS 星期几
     """
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    weekdays = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
+    now = datetime.now()
+    return f"{now.strftime('%Y-%m-%d %H:%M:%S')} {weekdays[now.weekday()]}"
 
 
 if __name__ == "__main__":

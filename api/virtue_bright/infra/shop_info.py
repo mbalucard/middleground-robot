@@ -35,6 +35,7 @@ async def get_shop_info(
         status (int): 门店状态,
             - 1-正常, None-正常和停用门店
         keyword (Optional[str]): 门店简称,门店编码,助记码
+        tenant_id (Optional[int]): 租户ID
     Returns:
         dict: 门店信息
     """
