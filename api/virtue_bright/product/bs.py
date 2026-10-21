@@ -1,5 +1,6 @@
 """
 商品模块
+    - goods_page_list: 商品资料查询（企业级）
 """
 
 from httpx import AsyncClient
