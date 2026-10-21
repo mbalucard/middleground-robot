@@ -33,6 +33,9 @@ class DeepSeekModelConfig:
     API_KEY = _read_env("DEEPSEEK_API_KEY")
     MODEL_NAME = "deepseek-flash"
 
+class DeepSeekToolsConfig:
+    BASE_URL = _read_env("DEEPSEEK_BASE_URL_TOOLS")
+    API_KEY = f"Bearer {_read_env("DEEPSEEK_API_KEY")}"
 
 class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")

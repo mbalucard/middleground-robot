@@ -4,21 +4,22 @@
     - get_current_date 获取当前日期
 """
 
-
 from datetime import datetime
 
 from tavily import TavilyClient
 from configs.model_config import Tavily
 from langchain.tools import tool
 from typing import Literal
+
 tavily_client = TavilyClient(api_key=Tavily.API_KEY)
 
-@tool('internet_search',description='互联网搜索工具')
+
+@tool('internet_search', description='互联网搜索工具')
 def internet_search(
-    query: str,
-    max_results: int = 5,
-    topic: Literal["general", "news", "finance"] = "general",
-    include_raw_content: bool = False,):
+        query: str,
+        max_results: int = 5,
+        topic: Literal["general", "news", "finance"] = "general",
+        include_raw_content: bool = False,):
     """
     使用互联网搜索工具进行搜索
     Args:
@@ -50,10 +51,9 @@ def get_current_date() -> str:
 
 
 if __name__ == "__main__":
-    tools = [internet_search,get_current_date]
+    tools = [internet_search, get_current_date]
     for tool in tools:
         print(tool.name)
         print(tool.description)
         print(tool.args)
         print("="*100)
-    
