@@ -2,6 +2,7 @@
 机构数据
     - warehouse_information_data_process: 机构仓库信息数据处理-查询用
     - shop_info_data_process: 门店信息数据处理-查询用
+    - region_tree_data_process: 区域树数据处理-查询用
 """
 
 from typing import List
@@ -91,3 +92,46 @@ def shop_info_data_process(data_json: List[dict]):
     df_data['门店状态'] = df_data['门店状态'].map(status)
     data_dict = df_data.to_dict(orient='records')
     return data_dict
+
+
+def _flatten_region_tree(nodes: list) -> list:
+    """
+    扁平化区域树
+    """
+    result = []
+    for node in nodes or []:
+        children = node.get("children") or []
+        if children:
+            node['is_leaf'] = False
+        else:
+            node['is_leaf'] = True
+        item = {k: v for k, v in node.items() if k != "children"}
+        result.append(item)
+        result.extend(_flatten_region_tree(children))
+    return result
+
+def region_tree_data_process(data_json: List[dict]):
+    """
+    区域树数据处理-查询用
+    """
+    data_list = _flatten_region_tree(data_json)
+    columns_dict = {
+        'id': '区域ID',
+        'code': '区域编码',
+        'level': '区域层级',
+        'name': '区域名称',
+        'shopStatus': '区域状态',
+        'parentId': '父区域ID',
+        'parentName': '父区域名称',
+        'is_leaf': '是否子节点',
+        }
+    columns_names = ['区域ID', '区域编码', '区域层级', '区域名称', '区域状态', '父区域ID', '父区域名称', '是否子节点']
+    shop_status = {"1": '正常', "0": '停用'}
+
+    df = pd.DataFrame(data_list)
+    df = df.rename(columns=columns_dict)
+    df_data = df.loc[:, columns_names]
+    df_data['区域状态'] = df_data['区域状态'].map(shop_status)
+    data_dict = df_data.to_dict(orient='records')
+    return data_dict
+    

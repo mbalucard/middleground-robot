@@ -9,7 +9,7 @@ ERP接口相关工具集
 
 from robot.agent_tools.erp_tools.goods import get_goods_info
 from robot.agent_tools.erp_tools.inventory import get_inventory_data
-from robot.agent_tools.erp_tools.shop_info import get_warehouse_info, get_shop_available_info
+from robot.agent_tools.erp_tools.shop_info import get_warehouse_info, get_shop_available_info, get_region_tree_info
 from robot.agent_tools.erp_tools.retail_info import get_shop_retail_info
 
 __all__ = [
@@ -18,4 +18,5 @@ __all__ = [
     "get_inventory_data",
     "get_shop_available_info",
     "get_shop_retail_info",
+    "get_region_tree_info",
 ]

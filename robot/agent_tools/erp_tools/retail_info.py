@@ -1,5 +1,6 @@
 """
 零售信息工具
+    - get_shop_retail_info: 获取门店零售信息
 """
 
 from langchain.tools import tool, ToolRuntime
@@ -18,6 +19,7 @@ async def get_shop_retail_info(
     store_code: List[str] = [],
     store_type: List[str] = [],
     tenant_id: Optional[int] = None,
+    region_id: List[str] = [],
     current: int = 1,
     size: int = 20,
     runtime: ToolRuntime[Context] = None
@@ -33,6 +35,7 @@ async def get_shop_retail_info(
         store_type: 门店类型
             - 1-直营, 2-加盟
         tenant_id: 租户ID
+        region_id: 区域ID列表
         current: 当前页
         size: 每页大小, 默认20
     Returns:
@@ -47,6 +50,7 @@ async def get_shop_retail_info(
         end_date=end_date,
         store_code=store_code,
         store_type=store_type,
+        belongRegion=region_id,
         tenant_id=tenant_id,
         current=current,
         size=size

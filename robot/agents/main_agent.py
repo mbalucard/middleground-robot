@@ -28,6 +28,7 @@ from robot.agent_tools.erp_tools import (
     get_goods_info,
     get_shop_available_info,
     get_shop_retail_info,
+    get_region_tree_info,
 )
 from robot.agent_tools.mcp_server_tools import QwMcp
 
@@ -76,6 +77,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
         get_goods_info,
         get_shop_available_info,
         get_shop_retail_info,
+        get_region_tree_info,
     ]
     tools = [internet_search, get_current_date, *mcp_tools, *erp_tools]
 

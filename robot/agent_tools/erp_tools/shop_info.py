@@ -2,6 +2,7 @@
 机构信息工具
     - get_warehouse_info: 获取仓库信息
     - get_shop_available_info: 获取可用门店信息
+    - get_region_tree_info: 获取区域树信息
 """
 
 
@@ -10,8 +11,8 @@ from typing import Optional
 from robot.agents.model_context import Context
 
 from api.virtue_bright.bi import warehouse_information
-from api.virtue_bright.infra import get_shop_info
-from utils.virtue_bright_erp.data_process import warehouse_information_data_process, shop_info_data_process
+from api.virtue_bright.infra import get_shop_info, query_region_tree
+from utils.virtue_bright_erp.data_process import warehouse_information_data_process, shop_info_data_process, region_tree_data_process
 
 
 @tool('get_warehouse_info', description='获取仓库信息')
@@ -101,3 +102,33 @@ async def get_shop_available_info(
         }
     else:
         return {"status": "error", "message": "未找到可用门店信息"}
+
+
+@tool('get_region_tree_info', description='获取区域树信息')
+async def get_region_tree_info(
+    tenant_id: Optional[int] = None,
+    runtime: ToolRuntime[Context] = None
+):
+    """
+    获取区域树信息
+    Args:
+        tenant_id: 租户ID
+    Returns:
+        dict: 区域树信息
+    """
+    authorization = runtime.context.api_key if runtime and runtime.context else None
+    if not authorization:
+        return {"status": "error", "message": "未授权"}
+    data = await query_region_tree(
+        authorization=authorization,
+        tenant_id=tenant_id
+    )
+    data_json = data.get('data')
+    if data_json:
+        data_list = region_tree_data_process(data_json)
+        return {
+            "status": "success",
+            "data": data_list,
+        }
+    else:
+        return {"status": "error", "message": "未找到区域树信息"}
