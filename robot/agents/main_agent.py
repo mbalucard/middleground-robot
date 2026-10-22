@@ -17,7 +17,7 @@ from langgraph.store.postgres import AsyncPostgresStore
 
 from configs.general_config import FilePath
 from robot.agents.agent_backend import make_backend
-from robot.agents.models import deepseek_model, minimax_model_M27
+from robot.agents.models import deepseek_model, minimax_model_M3
 from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
 
@@ -64,7 +64,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
     middleware = [
         create_summarization_tool_middleware(
             deepseek_model, tool_backend),  # 工具摘要中间件
-        ModelFallbackMiddleware(minimax_model_M27),  # 模型降级中间件
+        ModelFallbackMiddleware(minimax_model_M3),  # 模型降级中间件
     ]
     if model_middleware:
         middleware.append(model_middleware)

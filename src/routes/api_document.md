@@ -16,7 +16,6 @@
 | 值 | 说明 |
 | --- | --- |
 | `deepseek` | 默认 支持图片输入 |
-| `minimax_m27` | 纯文本 |
 | `minimax_m3` | 支持图片（`provider=anthropic`） |
 | `aihubmix_minimax_m27` | 纯文本 |
 | `aihubmix_minimax_m3` | 支持图片（`provider=anthropic`） |

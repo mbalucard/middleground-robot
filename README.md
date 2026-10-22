@@ -144,7 +144,7 @@ FastAPI（fastapi_main）
 
 说明：
 
-- `Context.model` / `model_label` 可指定：`deepseek`、`minimax_m27`、`minimax_m3`、`aihubmix_minimax_m27`、`aihubmix_minimax_m3`
+- `Context.model` / `model_label` 可指定：`deepseek`、`minimax_m3`、`aihubmix_minimax_m27`、`aihubmix_minimax_m3`
 - `deepseek` 对应实际模型名 `deepseek-flash`；有图时需搭配 `provider=openai`
 - `DynamicModelSelectionMiddleware` 已实现，当前默认未启用
 

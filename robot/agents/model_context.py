@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
-ModelLabel = Literal["deepseek", "minimax_m27", "minimax_m3",
+ModelLabel = Literal["deepseek", "minimax_m3",
                      "aihubmix_minimax_m27", "aihubmix_minimax_m3"]
 
 

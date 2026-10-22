@@ -2,7 +2,6 @@
 Agent模型
     - deepseek_model
     - deepseek_model_vision
-    - minimax_model_M27
     - minimax_model_M3
     - qwen_embedding_model
     - aihubmix_minimax_m27
@@ -28,13 +27,6 @@ deepseek_model = init_chat_model(
     reasoning_effort="high",  # 推理力度，low为低，high为中，max为高
 )
 
-
-minimax_model_M27 = init_chat_model(
-    model=MiniMaxModelConfig.MODEL_NAME_M27,
-    api_key=MiniMaxModelConfig.API_KEY,
-    base_url=MiniMaxModelConfig.BASE_URL_ANTHROPIC,
-    model_provider="anthropic",
-)
 
 minimax_model_M3 = init_chat_model(
     model=MiniMaxModelConfig.MODEL_NAME_M3,
@@ -69,6 +61,5 @@ aihubmix_minimax_m3 = init_chat_model(
 
 if __name__ == "__main__":
     print(deepseek_model.model_dump())
-    print(minimax_model_M27.model_dump())
     print(minimax_model_M3.model_dump())
     print(aihubmix_minimax_m27.model_dump())

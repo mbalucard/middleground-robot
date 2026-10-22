@@ -41,8 +41,7 @@ class DeepSeekToolsConfig:
 class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")
     API_KEY = _read_env("MINIMAX_KEY")
-    MODEL_NAME_M27 = "MiniMax-M2.7"
-    MODEL_NAME_M3 = "MiniMax-M3"
+    MODEL_NAME_M3 = "MiniMax-M3.1-Flash"
 
 
 class AIHubMixModelConfig:

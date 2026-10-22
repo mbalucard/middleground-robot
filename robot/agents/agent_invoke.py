@@ -43,7 +43,7 @@ async def run_agent(
         user_id(str): 用户ID, default="1001"
         message_id(str): 消息ID, default=None
         model_name(str): 模型名称, default="deepseek"
-            - deepseek / minimax_m27 / minimax_m3 / aihubmix_minimax_m27 / aihubmix_minimax_m3
+            - deepseek / minimax_m3 / aihubmix_minimax_m27 / aihubmix_minimax_m3
         api_key(str): 通行密匙 default=None
         session_redis(Optional[SessionRedis]): 会话Redis default=None
         user_content(Optional[UserContent]): 优先使用的用户消息内容（str 或多模态块列表）, default=None
@@ -195,7 +195,7 @@ async def run_agent_astream(
         user_id(str): 用户ID, default="1001"
         message_id(str): 消息ID, default=''
         model_name(str): 模型标签, default="deepseek"
-            - deepseek / minimax_m27 / minimax_m3 / aihubmix_minimax_m27 / aihubmix_minimax_m3
+            - deepseek / minimax_m3 / aihubmix_minimax_m27 / aihubmix_minimax_m3
         api_key(str): 通行密匙, default=None
         session_redis(Optional[SessionRedis]): 会话Redis, default=None
         user_content(Optional[UserContent]): 优先使用的用户消息内容（str 或多模态块列表）, default=None
