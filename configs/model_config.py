@@ -36,6 +36,7 @@ class DeepSeekModelConfig:
 class DeepSeekToolsConfig:
     BASE_URL = _read_env("DEEPSEEK_BASE_URL_TOOLS")
     API_KEY = f"Bearer {_read_env("DEEPSEEK_API_KEY")}"
+    TIMEOUT = 20
 
 class MiniMaxModelConfig:
     BASE_URL_ANTHROPIC = _read_env("MINIMAX_ANTHROPIC_URL")

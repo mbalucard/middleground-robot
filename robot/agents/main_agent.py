@@ -21,7 +21,7 @@ from robot.agents.models import deepseek_model, minimax_model_M27
 from robot.agents.model_middleware import get_model_middleware
 from robot.agents.model_context import Context
 
-from robot.agent_tools.ordinary_tool import internet_search, get_current_date
+from robot.agent_tools.ordinary_tool import internet_search, get_current_date, fetch_internet_content
 from robot.agent_tools.erp_tools import (
     get_inventory_data,
     get_warehouse_info,
@@ -79,7 +79,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
         get_shop_retail_info,
         get_region_tree_info,
     ]
-    tools = [internet_search, get_current_date, *mcp_tools, *erp_tools]
+    tools = [internet_search, get_current_date, fetch_internet_content, *mcp_tools, *erp_tools]
 
     sys_message = _SYS_MESSAGE_PATH.read_text(encoding="utf-8")
     system_prompt = SystemMessage(content=sys_message)
@@ -96,7 +96,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
         tools=tools,
         middleware=middleware,
         context_schema=Context,
-        interrupt_on={"internet_search": True}
+        interrupt_on={"internet_search": True, "fetch_internet_content": True}
     )
     return agent
 
