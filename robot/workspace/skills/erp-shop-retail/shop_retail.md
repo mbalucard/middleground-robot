@@ -1,8 +1,10 @@
-# 零售查询
+# 门店零售查询
 
 工具：`get_shop_retail_info`
 
-查门店在一段日期内的零售汇总。一家店在整个日期区间里只有一行，行内数字是这段时间的合计，不是某一天，也不是单笔小票。
+查门店在一段日期内的零售汇总（门店维度，不按商品拆）。一家店在整个日期区间里只有一行，行内数字是这段时间的合计，不是某一天，也不是单笔小票。
+
+要看某个商品卖了多少，不要用本工具，改读 `/skills/erp-shop-retail/goods_retail.md`，用 `get_store_goods_retail_info`。本工具不能传商品编码。
 
 没点名门店、还没有门店编码时，按 `/skills/erp-shop-retail/SKILL.md` 决定是汇总还是明细。用户给了门店名、还没有编码时，先读 `/skills/erp-shop-retail/shop.md` 调用 `get_shop_available_info`，不要用门店名直接调本工具。用户给了区域名、还没有区域 ID 时，先读 `/skills/erp-shop-retail/region.md` 调用 `get_region_tree_info`，不要用区域名直接调本工具。
 
