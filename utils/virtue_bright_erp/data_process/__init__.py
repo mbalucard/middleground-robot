@@ -7,6 +7,7 @@
     - shop_sale_data_process: 门店销售数据处理-查询用
     - shop_sale_summary_data_process: 门店销售汇总数据处理
     - store_goods_retail_data_process: 门店商品汇总报表数据处理
+    - store_goods_retail_summary_data_process: 门店商品汇总报表汇总数据处理
     - region_tree_data_process: 区域树数据处理-查询用
 """
 
@@ -25,6 +26,7 @@ from utils.virtue_bright_erp.data_process.sale_data import (
     shop_sale_data_process,
     shop_sale_summary_data_process,
     store_goods_retail_data_process,
+    store_goods_retail_summary_data_process,
 )
 
 __all__ = [
@@ -35,5 +37,6 @@ __all__ = [
     "shop_sale_data_process",
     "shop_sale_summary_data_process",
     "store_goods_retail_data_process",
+    "store_goods_retail_summary_data_process",
     "region_tree_data_process",
 ]

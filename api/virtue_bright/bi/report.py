@@ -371,11 +371,11 @@ async def store_goods_retail_report(
             - 格式为YYYY-MM-DD
         end_date (str): 结束日期
             - 格式为YYYY-MM-DD
-        store_code (List[str]): 门店编码
+        store_code (List[str]): 门店编码列表
         store_type (List[str]): 门店类型
             - 1-直营, 2-加盟
         belongRegion (List[str]): 直属区域ID
-        goods_code (List[str]): 商品编码
+        goods_code (List[str]): 商品编码列表
         tenant_id (Optional[int]): 租户ID
         current (int): 当前页码
         size (int): 每页大小

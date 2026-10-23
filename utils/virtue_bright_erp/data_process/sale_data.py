@@ -157,3 +157,31 @@ def store_goods_retail_data_process(data_json: list[dict]):
     df_data = df.loc[:, columns_names]
     data_dict = df_data.to_dict(orient='records')
     return data_dict
+
+
+def store_goods_retail_summary_data_process(data_json: dict):
+    """
+    门店商品汇总报表汇总数据处理
+    用以处理德明接口 store_goods_retail_report 返回的totalSummary字段数据
+    Args:
+        data_json (dict): totalSummary字段数据
+    Returns:
+        dict: 处理后的门店商品汇总报表汇总数据
+    """
+    columns_dict = {'dcIvQty': '总部库存',
+                    'saleAmt': '实收金额',
+                    'saleDateParamDiff': '期间天数',
+                    'saleReferenceGross': '毛利额',
+                    'stoIvQty': '门店库存',
+                    'saleReferenceGrossRate': '毛利率',
+                    'saleUnitPrice': '应收金额',
+                    'saleCost': '成本额',
+                    'saleQty': '销售数量',
+                    'saleOrderNo_2_0_0': '交易次数'}
+    columns_names = ['总部库存', '实收金额', '期间天数', '毛利额',
+                     '门店库存', '毛利率', '应收金额',  '成本额', '销售数量', '交易次数']
+    df = pd.DataFrame([data_json])
+    df = df.rename(columns=columns_dict)
+    df_data = df.loc[:, columns_names]
+    data_dict = df_data.to_dict(orient='records')
+    return data_dict[0]
