@@ -116,12 +116,16 @@ def shop_sale_summary_data_process(data_json: dict):
     return data_dict[0]
 
 
-def store_goods_retail_data_process(data_json: list[dict]):
+def store_goods_retail_data_process(
+    data_json: list[dict],
+    is_store_summary: bool = False,
+):
     """
     门店商品汇总报表数据处理
     用以处理德明接口 store_goods_retail_report 返回的数据
     Args:
         data_json (list[dict]): 门店商品汇总报表数据列表
+        is_store_summary (bool): 是否按门店汇总
     Returns:
         list[dict]: 处理后的门店商品汇总报表数据
     """
@@ -152,6 +156,9 @@ def store_goods_retail_data_process(data_json: list[dict]):
     }
     columns_names = ['门店编码', '门店名称', '门店简称', '门店类型', '商品编码', '通用名称', '商品名称', '规格/型号', '基本单位', '剂型',
                      '批准文号', '生产企业', '商品类型', '所属分类', '销售数量', '应收金额', '实收金额', '成本额', '毛利额', '毛利率', '交易次数', '门店库存', '总部库存']
+    if not is_store_summary:
+        remove_list = ['门店编码', '门店名称', '门店简称',]
+        columns_names = [i for i in columns_names if i not in remove_list]
     df = pd.DataFrame(data_json)
     df = df.rename(columns=columns_dict)
     df_data = df.loc[:, columns_names]

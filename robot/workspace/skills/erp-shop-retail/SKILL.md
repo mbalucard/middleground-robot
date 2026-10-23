@@ -8,14 +8,14 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 
 用门店工具查正常门店，用区域工具查区域树，用门店零售工具查门店维度销售，用商品零售工具查商品维度销售。商品编码用商品工具解析（说明在 erp-stock）。先按用户意图选工具，再调用。不要凭记忆编造门店编码、区域 ID、商品编码、租户 ID 或金额。
 
-门店零售：每家店一行。商品零售：每家店的每个商品一行。都覆盖整个日期区间，没有按天的明细，也没有单笔小票。总部没有零售。不要改用仓库工具，不要把仓库 ID 当成门店编码。不做排名。
+门店零售：每家店一行。商品零售：默认不按具体门店拆（`is_store_summary` 为 `False`；`store_type=[]` 时同一商品仍可能直营、加盟各一行）；用户要各店时再按门店拆（`True`，一行是门店×商品）。都覆盖整个日期区间，没有按天的明细，也没有单笔小票。总部没有零售。不要改用仓库工具，不要把仓库 ID 当成门店编码。不做排名。
 
 ## 先选哪类零售
 
 - 用户没提具体商品、药名、商品编码：用 `get_shop_retail_info`（门店维度）。点了门店但只问整店销售、或问「卖了哪些药」却没给商品时，也走门店零售；可告知「动销品项数」，不要空着 `goods_code` 调商品零售。
 - 用户提了具体商品、药名、通用名或商品编码：用 `get_store_goods_retail_info`（商品维度）。`goods_code` 必填。
 - 用户只问库存、不问销售：不要用本 skill 的零售工具，走库存 skill。
-- 销售场景里商品零售结果自带「门店库存」：默认展示门店库存；总部库存仅用户问到时展示。不要为此改调库存工具。
+- 销售场景里商品零售结果自带「门店库存」：默认展示门店库存；总部库存仅用户问到时展示。二者都是**查询当天的当前库存**，不是销售日期区间的历史库存。`is_store_summary=True` 时同一商品多店行会重复同一个总部库存，不要按行相加。不要为此改调库存工具。
 
 ## 先读哪份说明
 
@@ -27,7 +27,7 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 | 按区域名称或区域编码找区域，并收集区域 ID | `get_region_tree_info` | `/skills/erp-shop-retail/region.md` |
 | 按日期查门店维度零售汇总或门店明细 | `get_shop_retail_info` | `/skills/erp-shop-retail/shop_retail.md` |
 | 按通用名、商品名、编码、条码、批准文号找商品 | `get_goods_info` | `/skills/erp-stock/goods.md` |
-| 按日期查商品维度零售（门店×商品） | `get_store_goods_retail_info` | `/skills/erp-shop-retail/goods_retail.md` |
+| 按日期查商品维度零售（可按门店拆或只按商品） | `get_store_goods_retail_info` | `/skills/erp-shop-retail/goods_retail.md` |
 
 调用某个工具之前，先 `read_file` 对应说明（`limit=1000`）。
 
@@ -58,11 +58,17 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 
 ### 商品零售（有商品）
 
-- 点了商品、没点具体门店（含只点了区域）、且没说「分别」：汇总。`size=1`，只采用 `total_summary`。不要展示 `data` 里那一行，也不要额外拼商品名称/编码做核验清单。
-- 出现「分别」「各店」：明细。`size=10`，列出当前页的门店×商品行，合计仍用 `total_summary`。
-- 点名了一家或多家门店：明细。`size=10`。
+先定 `is_store_summary`，再定 `size`（细则见 `goods_retail.md`）：
 
-`size` 每次都显式传入。汇总必须是 `1`，明细必须是 `10`。工具默认的 `20` 不要用。
+- 没点名门店、也没说各店/按门店分别：`is_store_summary` 必须为 `False`（可不传）。**绝不**传 `True`。
+- 要「各店」「按门店分别」，或点名门店且要带门店字段：才传 `True`。
+- 点了具体商品、未明确只要合计：一律 `size=10`，报当前页 `data`。`page_info.total > 1` 时再报 `total_summary`；只有 1 行时不报合计。
+- 用户明确只要这几个商品的合计：允许 `size=1`，只报 `total_summary`，不展示 `data`。
+- 各店或点名门店：`True`（点名门店也允许 `False`），`size=10`，同样按 `total > 1` 决定是否带 `total_summary`。
+
+商品零售未点名门店、且用户没明确要查加盟时：`store_type` 始终 `["1"]`。只有用户明确要加盟或直营加盟都要时，才改成 `["2"]` 或 `[]`。
+
+`size` 每次都显式传入。商品零售默认 `10`；仅明确只要合计且 `False` 时用 `1`。工具默认的 `20` 不要用。
 
 ## 查点名门店的零售（无商品）
 
@@ -94,9 +100,10 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 3. 若用户点了区域、没点具体门店：读 `/skills/erp-shop-retail/region.md`，按区域流程收集「区域ID」。
 4. 读 `/skills/erp-shop-retail/goods_retail.md`，调用一次 `get_store_goods_retail_info`。
    - `goods_code` 是字符串列表，放入选定编码，例如 `["10001234"]` 或 `["10001234","10001235"]`。禁止 `[]`。
-   - 点了门店：`store_code` 放入门店编码，`store_type` 与 `region_id` 保持 `[]`，`tenant_id` 用门店的「租户ID」，`size=10`。
-   - 点了区域、没点门店：`region_id` 放入收集到的 ID，`store_code` 保持 `[]`；用户没说直营加盟时 `store_type` 传 `[]`。没说「分别」则 `size=1`，只报 `total_summary`；说了「分别」则 `size=10`。
-   - 没点门店、也没点区域：`store_code` 与 `region_id` 保持 `[]`；没说直营加盟时 `store_type` 传 `["1"]`。没说「分别」则 `size=1`；说了「分别」则 `size=10`。
+   - 用户没明确要查加盟、也没说直营加盟都要：`store_type` 传 `["1"]`。明确只看加盟传 `["2"]`，都要传 `[]`。
+   - 点了门店：`store_code` 放入门店编码，`region_id` 保持 `[]`，`store_type` 传 `[]`（门店已限定，不再用类型过滤），`tenant_id` 用门店的「租户ID」，`is_store_summary=True`，`size=10`。回答报当前页；`page_info.total > 1` 时再报 `total_summary`。
+   - 点了区域、没点门店：`region_id` 放入收集到的 ID，`store_code` 保持 `[]`；`store_type` 按上条（默认 `["1"]`）。没说各店则不传 `is_store_summary`（保持 `False`），`size=10` 报当前页；说了各店/按门店分别则 `True` + `size=10`。用户明确只要合计则 `False` + `size=1`。
+   - 没点门店、也没点区域：`store_code` 与 `region_id` 保持 `[]`；`store_type` 默认 `["1"]`；**禁止** `is_store_summary=True`。默认 `size=10` 报当前页；明确只要合计才 `size=1`。
 
 商品没有查到或用户尚未选定，就停在这一步，不要带着空编码或未确认的编码去查零售。
 
@@ -133,7 +140,7 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 
 ## 对比两个时段
 
-「和上月比」「和上周比」以及任何两段时间的对比，拆成两次同类零售查询。每次一个日期区间，筛选参数保持一致。门店零售两次都先读 `shop_retail.md`；商品零售两次都先读 `goods_retail.md`。用两次的 `total_summary` 对照合计。明细对比再同时列出两次的当前页行。
+「和上月比」「和上周比」以及任何两段时间的对比，拆成两次同类零售查询。每次一个日期区间，筛选参数保持一致（商品零售含 `is_store_summary`）。门店零售两次都先读 `shop_retail.md`；商品零售两次都先读 `goods_retail.md`。用两次的 `total_summary` 对照合计。明细对比再同时列出两次的当前页行。
 
 这个查询不做排名。用户问哪家最高、哪个商品卖得最好时，不要翻完全部页，也不要在本地排序后宣布名次。用户要看逐家或逐行数字时，按「分别」给当前页明细。
 
@@ -154,13 +161,15 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 - 第一句写明日期范围。
 - 门店零售汇总默认只报 `total_summary` 的：应收金额、实收金额、折扣率、毛利率、交易次数、客单价、客品数。可用 `page_info.total` 说明覆盖多少家门店。点了门店却只问整店、用户关心动销面时，可带「动销品项数」。
 - 门店零售明细默认列：门店编码、门店简称、门店类型、应收金额、实收金额、折扣率、毛利率、交易次数、客单价、客品数。合计用 `total_summary` 的上述指标，不要把当前页加总当成全部。
-- 商品零售汇总默认只报 `total_summary` 的：销售数量、实收金额、毛利率、门店库存。
-- 商品零售明细默认列：门店编码、门店简称、商品名称、规格/型号、销售数量、实收金额、毛利率、门店库存。合计用 `total_summary` 的对应指标。
+- 商品零售默认报当前页。仅当 `page_info.total > 1` 时再报 `total_summary`（销售数量、实收金额、毛利率、门店库存）；`total` 为 `1` 时不报合计。用户明确只要合计且 `size=1` 时，只报 `total_summary`。
+- 商品零售按门店拆开（`True`）默认列：门店编码、门店简称、门店类型、商品名称、规格/型号、销售数量、实收金额、毛利率、门店库存。若本次 `store_type=[]` 且当前页既有直营又有加盟：按当前页加总告知直营、加盟分别多少，并写明仅当前页。
+- 商品零售不按具体门店拆（`False`）默认列：门店类型、商品名称、规格/型号、销售数量、实收金额、毛利率、门店库存。`store_type=[]` 时同一商品的直营行、加盟行都要列出。
 - 零售行的「门店类型」若是 `1` 写成直营，`2` 写成加盟。
-- `store_type=["1"]` 时说明是直营、不含加盟。`["2"]` 时说明是加盟、不含直营。`[]` 且没点名门店时说明含直营和加盟。点名门店时说明查的是这些门店。按区域查时说明区域名称。点名商品时说明查的是这些商品。
+- 商品零售：用户没提加盟时说明只查了直营。`store_type=["2"]` 时说明只查加盟。`[]` 时说明含直营和加盟。点名门店时说明查的是这些门店。按区域查时说明区域名称。点名商品时说明查的是这些商品。
+- 门店零售：`store_type=["1"]` 时说明是直营、不含加盟。`["2"]` 时说明是加盟、不含直营。`[]` 且没点名门店时说明含直营和加盟。
 - `status` 为 `error` 且消息是「未找到区域树信息」时，说明没有区域数据。用户点名的区域已停用时，说明该区域已停用，无法查询。
 - 门店零售：成本额、毛利额、折扣金额、销售数量、品单价、客品次、会员、动销、日均等，只在用户问到时展示（动销品项数在「点了门店没点商品」场景可主动带）。问有销售的天数时用「动销天数」。
-- 商品零售：应收、成本、毛利额、交易次数、总部库存等，只在用户问到时展示。总部库存默认不展示。
+- 商品零售：应收、成本、毛利额、交易次数、总部库存等，只在用户问到时展示。总部库存默认不展示；展示时说明是当前库存，多店行不要把总部库存加总。
 - 明细超过一页时，报 `page_info.total` 和 `pages`。用户要下一页再把 `current` 加 1，`size` 仍为 `10`。
 - `status` 为 `error` 且消息是「未找到可用门店信息」「未找到门店零售信息」「未找到商品信息」或「未找到门店商品零售信息」时，说明当前条件没有命中。不要说系统故障。
 - 消息是「未授权」时，直接告诉用户未授权，不要改参数重试。

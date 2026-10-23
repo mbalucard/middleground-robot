@@ -69,6 +69,11 @@ async def change_organ(username: str, authorization: str, organ_id: int) -> dict
 
 
 async def get_authorization_test():
+    """
+    测试获取授权信息
+    Returns:
+        dict: 授权信息
+    """
     username = os.getenv("TEST_USERNAME")
     password = os.getenv("TEST_PASSWORD")
     organ_id = os.getenv("TEST_ORGAN_ID")

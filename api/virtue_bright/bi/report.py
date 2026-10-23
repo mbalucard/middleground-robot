@@ -360,6 +360,7 @@ async def store_goods_retail_report(
     belongRegion: List[str] = [],
     goods_code: List[str] = [],
     tenant_id: Optional[int] = None,
+    is_store_summary: bool = False,
     current: int = 1,
     size: int = 20,
 ):
@@ -377,6 +378,7 @@ async def store_goods_retail_report(
         belongRegion (List[str]): 直属区域ID
         goods_code (List[str]): 商品编码列表
         tenant_id (Optional[int]): 租户ID
+        is_store_summary (bool): 是否按门店汇总
         current (int): 当前页码
         size (int): 每页大小
     Returns:
@@ -424,7 +426,10 @@ async def store_goods_retail_report(
             "val": store_type
         }
     ]
-    report_args = report_field_args(report_code)
+    report_args = report_field_args(
+        report_code=report_code,
+        is_summary=is_store_summary,
+    )
     orderFields = report_args.get("orderFields")
     reportFieldIds = report_args.get("reportFieldIds")
     payload = {

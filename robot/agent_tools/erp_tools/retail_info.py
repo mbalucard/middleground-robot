@@ -85,6 +85,7 @@ async def get_store_goods_retail_info(
     store_type: List[str] = [],
     tenant_id: Optional[int] = None,
     region_id: List[str] = [],
+    is_store_summary: bool = False,
     current: int = 1,
     size: int = 20,
     runtime: ToolRuntime[Context] = None):
@@ -101,6 +102,7 @@ async def get_store_goods_retail_info(
             - 1-直营, 2-加盟
         tenant_id: 租户ID
         region_id: 区域ID列表
+        is_store_summary: 是否按门店汇总
         current: 当前页
         size: 每页大小, 默认20
     Returns:
@@ -119,12 +121,16 @@ async def get_store_goods_retail_info(
         store_type=store_type,
         belongRegion=region_id,
         tenant_id=tenant_id,
+        is_store_summary=is_store_summary,
         current=current,
         size=size
     )
     data_json = data.get('data').get('records')
     if data_json:
-        data_list = store_goods_retail_data_process(data_json)
+        data_list = store_goods_retail_data_process(
+            data_json,
+            is_store_summary=is_store_summary,
+        )
         total_summary = store_goods_retail_summary_data_process(data.get('data').get('totalSummary'))
         total = data.get('data').get('total')
         pages = data.get('data').get('pages')
