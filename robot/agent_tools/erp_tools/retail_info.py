@@ -80,7 +80,7 @@ async def get_shop_retail_info(
 async def get_store_goods_retail_info(
     start_date: str,
     end_date: str,
-    goods_code: List[str] = [],
+    goods_codes: List[str] = [],
     store_code: List[str] = [],
     store_type: List[str] = [],
     tenant_id: Optional[int] = None,
@@ -96,7 +96,7 @@ async def get_store_goods_retail_info(
             - 格式为YYYY-MM-DD
         end_date: 结束日期
             - 格式为YYYY-MM-DD
-        goods_code: 商品编码列表
+        goods_codes: 商品编码列表
         store_code: 门店编码列表
         store_type: 门店类型列表
             - 1-直营, 2-加盟
@@ -116,7 +116,7 @@ async def get_store_goods_retail_info(
         authorization=authorization,
         start_date=start_date,
         end_date=end_date,
-        goods_code=goods_code,
+        goods_code=goods_codes,
         store_code=store_code,
         store_type=store_type,
         belongRegion=region_id,

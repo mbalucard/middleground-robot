@@ -1,7 +1,7 @@
 """
 库存数据处理
     - inventory_data_process: 库存数据处理
-    - inventory_audit_summary_data_process: 库存盘点汇总数据处理
+    - inventory_audit_data_process: 库存盘点数据处理
 """
 
 
@@ -9,8 +9,8 @@ import pandas as pd
 
 
 def inventory_data_process(
-    data_json: list[dict],
-    is_summary: bool = True):
+        data_json: list[dict],
+        is_summary: bool = True):
     """
     库存数据处理
     用以处理德明接口 inventory_report 返回的库存数据
@@ -70,9 +70,9 @@ def inventory_data_process(
     return data_dict
 
 
-def inventory_audit_summary_data_process(
-    data_json: list[dict],
-    is_summary: bool = True):
+def inventory_audit_data_process(
+        data_json: list[dict],
+        is_summary: bool = True):
     """
     库存盘点汇总数据处理
     用以处理德明接口 inventory_audit_summary_report 返回的库存盘点汇总数据
@@ -112,7 +112,8 @@ def inventory_audit_summary_data_process(
         'stockCost': '盘点库存成本额',
     }
     if is_summary:
-        columns_names = ['门店类型','区域ID','直属区域','门店/仓库编码','门店/仓库名称','门店/仓库简称','盘点品相数','账面库存', '出库数量', '入库数量', '盘点数量', '盈亏数量', '账面库存成本额','盘点库存成本额','盈亏成本额', '盈亏状态']
+        columns_names = ['门店类型', '区域ID', '直属区域', '门店/仓库编码', '仓库ID', '门店/仓库名称', '门店/仓库简称', '盘点品相数',
+                         '账面库存', '出库数量', '入库数量', '盘点数量', '盈亏数量', '账面库存成本额', '盘点库存成本额', '盈亏成本额', '盈亏状态']
     else:
         columns_names = ['门店类型', '商品编码', '通用名称', '商品名称', '规格/型号', '剂型', '基本单位', '批准文号',
                          '生产企业', '所属分类', '账面库存', '出库数量', '入库数量', '盘点数量', '盈亏数量', '盈亏成本额', '盈亏状态']

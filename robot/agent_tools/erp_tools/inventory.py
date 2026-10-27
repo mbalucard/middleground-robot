@@ -8,7 +8,7 @@ from typing import Optional, List
 from robot.agents.model_context import Context
 
 from api.virtue_bright.bi import inventory_report, inventory_audit_summary_report
-from utils.virtue_bright_erp.data_process import inventory_data_process, inventory_audit_summary_data_process
+from utils.virtue_bright_erp.data_process import inventory_data_process, inventory_audit_data_process
 
 
 @tool('get_inventory_data', description='获取商品库存数据')
@@ -81,6 +81,7 @@ async def get_inventory_audit_summary_data(
     size: int = 20,
     take_stock_type: List[str] = [],
     warehouse_id: List[str] = [],
+    goods_codes: List[str] = [],
     profit_loss_status: List[str] = [],
     is_profit_loss: List[str] = ["是"],
     store_type: List[str] = ["1"],
@@ -101,6 +102,7 @@ async def get_inventory_audit_summary_data(
             - 1-抽盘 2-全盘
         warehouse_id: 仓库ID
             - get_warehouse_info中获取
+        goods_codes: 商品编码列表
         profit_loss_status: 盈亏状态
             - 不盈不亏 盘盈 盘亏
         is_profit_loss: 是否产生盈亏
@@ -119,6 +121,7 @@ async def get_inventory_audit_summary_data(
         start_date=start_date,
         end_date=end_date,
         tenant_id=tenant_id,
+        goods_codes=goods_codes,
         current=current,
         size=size,
         take_stock_type=take_stock_type,
@@ -130,7 +133,7 @@ async def get_inventory_audit_summary_data(
     )
     data_json = data.get('data').get('records')
     if data_json:
-        data_list = inventory_audit_summary_data_process(
+        data_list = inventory_audit_data_process(
             data_json, is_summary=is_store_summary)
         total_summary = data.get('data').get('totalSummary')
         pages = data.get('data').get('pages')
@@ -147,4 +150,4 @@ async def get_inventory_audit_summary_data(
             }
         }
     else:
-        return {"status": "error", "message": "未找到库存盘点商品或门店汇总数据"}
+        return {"status": "success", "message": "未找到库存盘点数据"}

@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | `commonName` | 通用名称 | 无 | 用户给了名称时先用这个查，如「迪巧」「三黄片」 |
 | `goods_name` | 商品名称 | 无 | 通用名称没有结果时，用同一个名称再查一次 |
-| `goods_codes` | 商品编码 | 无 | 用户已经给了编码。类型是**单个字符串**，不是列表 |
+| `goods_code` | 商品编码 | 无 | 用户已经给了编码。类型是**单个字符串**，不是列表 |
 | `goods_barcode` | 商品条码 | 无 | 仅当用户给的是 13 或 14 位纯数字时使用 |
 | `licenseNumber` | 批准文号 | 无 | 用户给了批准文号，或要用文号消歧 |
 | `producer` | 生产企业 | 无 | 用户指定了厂家，或同名商品需要按厂家缩小 |
@@ -21,13 +21,13 @@
 
 选择规则：
 
-1. 用户给了商品编码 → 只传 `goods_codes`（字符串）
+1. 用户给了商品编码 → 只传 `goods_code`（字符串）
 2. 用户给了条形码 → 先数位数。正好 13 位或 14 位纯数字才传 `goods_barcode`。位数不对、含字母或空格时，不要传这个参数；告诉用户条形码应为 13 或 14 位，请其核对后再查
 3. 用户给了批准文号 → 传 `licenseNumber`
 4. 用户给了商品名称（如「迪巧」）→ 先传 `commonName`。返回「未找到商品信息」时，用同一个名称改传 `goods_name` 再查一次。两次都没有结果，再告诉用户没找到
 5. 名称再加上厂家 → 两次查询都带上 `producer`：先 `commonName` + `producer`，没有结果再 `goods_name` + `producer`
 
-`get_inventory_data` 的 `goods_codes`、以及 `get_store_goods_retail_info` 的 `goods_code`，都是字符串列表。本工具的 `goods_codes` 不是列表，不要传 `["编码"]`。
+`get_inventory_data`、`get_inventory_audit_summary_data`、`get_store_goods_retail_info` 的 `goods_codes` 都是字符串列表。本工具的 `goods_code` 是单个字符串，不是列表，不要传 `["编码"]`。
 
 ## 调用流程
 
@@ -62,7 +62,7 @@
 
 | 字段 | 用途 |
 | --- | --- |
-| `商品编码` | 传给库存工具放进 `goods_codes` 列表；传给商品零售工具放进 `goods_code` 列表 |
+| `商品编码` | 传给库存、盘点或商品零售工具放进 `goods_codes` 列表 |
 | `通用名称` | 展示、和用户说的药名核对 |
 | `商品名称` | 展示 |
 | `规格/型号` | 同名消歧，回答时带上 |
@@ -95,7 +95,7 @@ get_goods_info(goods_name="迪巧")
 用户：「编码 10001234 是什么药」
 
 ```
-get_goods_info(goods_codes="10001234")
+get_goods_info(goods_code="10001234")
 ```
 
 用户给了 13 位条形码 `6923450656789`：

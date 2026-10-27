@@ -1,12 +1,14 @@
 ---
 name: erp-stock
-description: 查询 ERP 仓库、商品主数据和库存。用户提到库存、还有多少货、仓库、门店仓、物资仓、商品编码、通用名、批准文号、条码，或要查某门店某种商品（如三黄片）的库存时使用。指定了门店时先定位仓库；只问某种商品一共还有多少时先定位商品编码。
-allowed-tools: get_warehouse_info get_goods_info get_inventory_data
+description: 查询 ERP 仓库、商品主数据、库存与盘点。用户提到库存、还有多少货、仓库、门店仓、物资仓、商品编码、通用名、批准文号、条码、盘点、盘盈、盘亏、盘损、盈亏，或要查某门店某种商品（如三黄片）的库存或盘点时使用。指定了门店时先定位仓库；只问某种商品一共还有多少时先定位商品编码；查盘点时先定日期范围。
+allowed-tools: get_warehouse_info get_goods_info get_inventory_data get_inventory_audit_summary_data
 ---
 
-# ERP 仓库、商品与库存
+# ERP 仓库、商品、库存与盘点
 
-用 ERP 工具查仓库、商品和库存。先按用户意图选工具，再调用；不要凭记忆编造仓库 ID、商品编码或库存数量。
+用 ERP 工具查仓库、商品、库存和盘点。先按用户意图选工具，再调用；不要凭记忆编造仓库 ID、商品编码、库存数量或盘点数据。
+
+库存和盘点是两类事：问「还有多少货」走库存；问「盘点了没有」「盘盈盘亏多少」走盘点。不要混用工具。
 
 ## 先读哪份说明
 
@@ -17,6 +19,7 @@ allowed-tools: get_warehouse_info get_goods_info get_inventory_data
 | 按门店名、简称、门店编码、助记码找仓库 | `get_warehouse_info` | `/skills/erp-stock/warehouse.md` |
 | 按通用名、商品名、编码、条码、批准文号找商品 | `get_goods_info` | `/skills/erp-stock/goods.md` |
 | 按商品或仓库查库存 | `get_inventory_data` | `/skills/erp-stock/inventory.md` |
+| 按日期查盘点（门店汇总或商品汇总） | `get_inventory_audit_summary_data` | `/skills/erp-stock/inventory_audit.md` |
 
 调用某个工具之前，先 `read_file` 对应说明（`limit=1000`）。
 
@@ -41,7 +44,7 @@ allowed-tools: get_warehouse_info get_goods_info get_inventory_data
    - `warehouse_id` 是字符串列表，元素是第 1 步的「仓库ID」。
    - `goods_codes` 是字符串列表，元素是第 2 步的「商品编码」。
    - 已经用 `warehouse_id` 限定了这一家时，`shop_type` 保持 `[]`。不要因为这是门店就改成 `["1"]` 或 `["2"]`。
-   - 注意：商品工具里的 `goods_codes` 是单个字符串，库存工具里的 `goods_codes` 是列表。不要混用类型。
+   - 注意：商品工具里的 `goods_code` 是单个字符串；库存工具和盘点工具里的 `goods_codes` 是列表。不要混用类型。
 
 仓库没有结果，就停在这一步告诉用户，不要带着空 ID 继续往后查。商品名称要先走完通用名称、再走商品名称，两次都没有才停。
 
@@ -49,9 +52,21 @@ allowed-tools: get_warehouse_info get_goods_info get_inventory_data
 
 用户没有指定门店或仓库时，不要先查仓库。读 `goods.md` 拿到「商品编码」，再读 `inventory.md` 调用 `get_inventory_data`：不传 `warehouse_id`，`shop_type` 用默认 `[]`，`is_summary` 用默认 `True`。这种查询含总部、直营、加盟。
 
+## 查盘点
+
+用户提到盘点、盘盈、盘亏、盘损、盈亏时，读 `/skills/erp-stock/inventory_audit.md`，调用 `get_inventory_audit_summary_data`。细则以该文件为准，这里只列入口：
+
+1. 先定日期。没说日期或说「最近」：当月 1 日到当月最后一天。相对日期先用 `get_current_date`。
+2. 点了门店或总部仓：先读 `warehouse.md` 拿「仓库ID」「租户ID」。总部仓名称常带「仓」，「仓库类型」多为「企业仓库」。
+3. 点了商品：先读 `goods.md` 拿「商品编码」。
+4. 默认按门店汇总（`is_store_summary=True`）、只看直营（`store_type=["1"]`）、只看有盈亏（`is_profit_loss=["是"]`）。
+5. 看各店整体情况用按门店汇总；看商品盘盈盘亏用 `is_store_summary=False`。同时点了门店和商品：`False`，并带上 `warehouse_id` 与 `goods_codes`，`store_type` 改为 `[]`。
+6. 按门店汇总结果里每行带「仓库ID」。用户追问某一家时，直接用该行的「仓库ID」传 `warehouse_id`，不要再查仓库。
+7. 盘点的范围参数是 `store_type`，默认 `["1"]`，和库存工具的 `shop_type`（默认 `[]`）不要混用。
+
 ## 门店范围
 
-`shop_type` 的含义以 `inventory.md` 为准：
+库存用 `shop_type`，含义以 `inventory.md` 为准：
 
 - 没说范围：`[]`，总部、直营、加盟一起查。总部是连锁仓库或批发公司仓库。
 - 只说「只看门店」，没说直营还是加盟：`["1"]`，只查直营。
@@ -59,19 +74,23 @@ allowed-tools: get_warehouse_info get_goods_info get_inventory_data
 - 明确只看直营：`["1"]`。明确只看加盟：`["2"]`。
 - 范围被限定到直营、加盟或所有门店时，回答要说明不含总公司仓库。
 
+盘点用 `store_type`，含义以 `inventory_audit.md` 为准：默认是 `["1"]`（只直营），不是 `[]`。已经用 `warehouse_id` 限定某一家时改为 `[]`。查总部盘点时传总部仓的 `warehouse_id`，`store_type=[]`。
+
 不要因为直营没有结果，再自动改成加盟重查。
 
 ## 只查其中一层
 
 - 只问仓库、门店仓、仓库 ID：只做仓库查询。名称含「物资」的仓库默认不列入候选。
 - 只问商品编码、规格、厂家、批准文号：只做商品查询。
-- 用户已经给了仓库 ID 和商品编码：只查库存，不要重复查找。
+- 用户已经给了仓库 ID 和商品编码：只查库存或盘点，不要重复查找。
+- 只问盘点、没问当前库存：只调盘点工具，不要顺带查库存。
 
 ## 回答要求
 
 - 用中文表格或短列表，不要原样倒 JSON。
 - 名称、编码、数量以工具结果为准。
 - 查库存时优先报「可用库存数量」，并带上「库存数量」「规格/型号」。汇总结果没有批号。只有明细查询才报「批号」。
-- 默认 `shop_type=[]` 时，说明数量含总部、直营、加盟。限定为直营、加盟或所有门店时，说明不含总公司仓库。只查直营时同时说明不含加盟；只查加盟时同时说明不含直营。
-- `status` 为 `error` 且消息是「未找到库存数据」或「未找到…」时，说明当前条件没有命中，请用户换名称或编码。不要说系统故障。
+- 查盘点时默认展示盈亏数量、盈亏成本额、盈亏状态；账面库存成本额、盘点库存成本额仅用户问成本时展示。回答写明日期范围。
+- 默认 `shop_type=[]` 时，说明数量含总部、直营、加盟。限定为直营、加盟或所有门店时，说明不含总公司仓库。只查直营时同时说明不含加盟；只查加盟时同时说明不含直营。盘点默认直营时同样说明不含加盟与总部。
+- 库存无数据：`status` 为 `error` 且消息是「未找到库存数据」或「未找到…」时，说明当前条件没有命中。盘点无数据：`status` 为 `success` 且消息是「未找到库存盘点数据」时，说明该日期范围没有盘点记录。都不要说系统故障，也不要改范围自动重试。
 - 消息是「未授权」时，直接告诉用户未授权，不要改参数重试。

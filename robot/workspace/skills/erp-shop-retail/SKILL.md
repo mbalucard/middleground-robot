@@ -12,8 +12,8 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 
 ## 先选哪类零售
 
-- 用户没提具体商品、药名、商品编码：用 `get_shop_retail_info`（门店维度）。点了门店但只问整店销售、或问「卖了哪些药」却没给商品时，也走门店零售；可告知「动销品项数」，不要空着 `goods_code` 调商品零售。
-- 用户提了具体商品、药名、通用名或商品编码：用 `get_store_goods_retail_info`（商品维度）。`goods_code` 必填。
+- 用户没提具体商品、药名、商品编码：用 `get_shop_retail_info`（门店维度）。点了门店但只问整店销售、或问「卖了哪些药」却没给商品时，也走门店零售；可告知「动销品项数」，不要空着 `goods_codes` 调商品零售。
+- 用户提了具体商品、药名、通用名或商品编码：用 `get_store_goods_retail_info`（商品维度）。`goods_codes` 必填。
 - 用户只问库存、不问销售：不要用本 skill 的零售工具，走库存 skill。
 - 销售场景里商品零售结果自带「门店库存」：默认展示门店库存；总部库存仅用户问到时展示。二者都是**查询当天的当前库存**，不是销售日期区间的历史库存。`is_store_summary=True` 时同一商品多店行会重复同一个总部库存，不要按行相加。不要为此改调库存工具。
 
@@ -99,7 +99,7 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 2. 若用户点了门店：读 `/skills/erp-shop-retail/shop.md`，按门店流程拿到「门店编码」和「租户ID」。
 3. 若用户点了区域、没点具体门店：读 `/skills/erp-shop-retail/region.md`，按区域流程收集「区域ID」。
 4. 读 `/skills/erp-shop-retail/goods_retail.md`，调用一次 `get_store_goods_retail_info`。
-   - `goods_code` 是字符串列表，放入选定编码，例如 `["10001234"]` 或 `["10001234","10001235"]`。禁止 `[]`。
+   - `goods_codes` 是字符串列表，放入选定编码，例如 `["10001234"]` 或 `["10001234","10001235"]`。禁止 `[]`。
    - 用户没明确要查加盟、也没说直营加盟都要：`store_type` 传 `["1"]`。明确只看加盟传 `["2"]`，都要传 `[]`。
    - 点了门店：`store_code` 放入门店编码，`region_id` 保持 `[]`，`store_type` 传 `[]`（门店已限定，不再用类型过滤），`tenant_id` 用门店的「租户ID」，`is_store_summary=True`，`size=10`。回答报当前页；`page_info.total > 1` 时再报 `total_summary`。
    - 点了区域、没点门店：`region_id` 放入收集到的 ID，`store_code` 保持 `[]`；`store_type` 按上条（默认 `["1"]`）。没说各店则不传 `is_store_summary`（保持 `False`），`size=10` 报当前页；说了各店/按门店分别则 `True` + `size=10`。用户明确只要合计则 `False` + `size=1`。
@@ -107,7 +107,7 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 
 商品没有查到或用户尚未选定，就停在这一步，不要带着空编码或未确认的编码去查零售。
 
-用户已经给了商品编码：跳过商品查询，直接把编码放进 `goods_code`。
+用户已经给了商品编码：跳过商品查询，直接把编码放进 `goods_codes`。
 
 ## 没点名门店，也没点名区域（无商品）
 

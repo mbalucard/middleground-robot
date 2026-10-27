@@ -16,7 +16,7 @@ async def get_goods_info(
     commonName: Optional[str] = None,
     producer: Optional[str] = None,
     licenseNumber: Optional[str] = None,
-    goods_codes: Optional[str] = None,
+    goods_code: Optional[str] = None,
     goods_name: Optional[str] = None,
     goods_barcode: Optional[str] = None,
     current: int = 1,
@@ -29,7 +29,7 @@ async def get_goods_info(
         commonName: 通用名称
         producer: 生产企业
         licenseNumber: 批准文号
-        goods_codes: 商品编码
+        goods_code: 商品编码
         goods_name: 商品名称
         goods_barcode: 商品条码
         current: 当前页
@@ -42,7 +42,7 @@ async def get_goods_info(
         return {"status": "error", "message": "未授权"}
     data = await goods_page_list(
         authorization=authorization,
-        codes=goods_codes,
+        codes=goods_code,
         name=goods_name,
         commonName=commonName,
         producer=producer,

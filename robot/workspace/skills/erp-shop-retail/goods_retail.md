@@ -4,7 +4,7 @@
 
 按商品查一段日期内的零售。行内数字是整段日期的合计，不是某一天，也不是单笔小票。
 
-`goods_code` 必填，禁止传 `[]`。没有商品编码时不要调本工具。
+`goods_codes` 必填，禁止传 `[]`。没有商品编码时不要调本工具。
 
 - 用户点了商品名、还没有编码：先读 `/skills/erp-stock/goods.md`，调用 `get_goods_info`。
 - 用户点了门店名、还没有门店编码：先读 `/skills/erp-shop-retail/shop.md`，调用 `get_shop_available_info`。
@@ -40,7 +40,7 @@
 | --- | --- | --- | --- |
 | `start_date` | 开始日期 | 必填 | `YYYY-MM-DD` |
 | `end_date` | 结束日期 | 必填 | `YYYY-MM-DD` |
-| `goods_code` | 商品编码列表 | 无，必填 | 字符串列表，元素是「商品编码」。至少一个。禁止 `[]` |
+| `goods_codes` | 商品编码列表 | 无，必填 | 字符串列表，元素是「商品编码」。至少一个。禁止 `[]` |
 | `store_code` | 门店编码列表 | `[]` | 字符串列表。不限定门店时保持 `[]` |
 | `store_type` | 门店类型 | `[]` | 见下方规则。未点名门店且用户没提加盟时必须显式传 `["1"]` |
 | `tenant_id` | 租户 ID | 无 | 查过门店时用结果里的「租户ID」，整数。没有时不传 |
@@ -49,15 +49,15 @@
 | `current` | 页码 | `1` | 正整数 |
 | `size` | 每页条数 | 工具默认 `20`，不要用 | 见下方搭配表。默认报当前页时传 `10`；仅用户明确只要合计且 `False` 时传 `1` |
 
-`goods_code`、`size` 必须显式传入。未点名门店时的 `store_type` 也必须显式传入（默认只查直营时传 `["1"]`）。
+`goods_codes`、`size` 必须显式传入。未点名门店时的 `store_type` 也必须显式传入（默认只查直营时传 `["1"]`）。
 
 日期按 `SKILL.md` 换算。用户没说日期时，开始和结束都是 `get_current_date` 返回的当天。
 
-`goods_code`：
+`goods_codes`：
 
 - 必须来自用户已确认的商品，或用户直接给的编码。单个也写成 `["10001234"]`。
 - 用户选定多个时，放进同一个列表，一次调用。不要替用户挑规格。
-- 商品工具里的 `goods_codes` 是单个字符串；本工具的 `goods_code` 是列表。不要混用类型。
+- 商品工具里的 `goods_code` 是单个字符串；本工具的 `goods_codes` 是列表。不要混用类型。
 - 禁止空列表。禁止传商品名称、通用名。
 
 `store_code`：
@@ -96,7 +96,7 @@
 - `size=1` 仅允许：用户明确要合计，且 `is_store_summary=False`。
 - 不要一次把 `size` 调大。用户要下一页时，`current` 加 1，`size` 仍为 `10`。
 
-没有结果时不要改 `store_type`、`region_id`、`goods_code`、`is_store_summary` 或 `size` 重试。
+没有结果时不要改 `store_type`、`region_id`、`goods_codes`、`is_store_summary` 或 `size` 重试。
 
 ## 调用流程
 
@@ -110,7 +110,7 @@
 8. 看 `status`、`data`、`total_summary`、`page_info`。
 9. `size=1` 只整理 `total_summary`。`size=10` 先列当前页；仅当 `page_info.total > 1` 时再报 `total_summary`。
 
-对比两个时段时，用同一套 `goods_code`、`store_code`、`store_type`、`region_id`、`is_store_summary` 和 `size` 各查一次，只更换日期。
+对比两个时段时，用同一套 `goods_codes`、`store_code`、`store_type`、`region_id`、`is_store_summary` 和 `size` 各查一次，只更换日期。
 
 ## 返回结构
 
@@ -205,42 +205,42 @@
 已得到商品编码 `10001234`。用户问三黄片今天卖了多少，没点门店、没说各店。报当前页（`is_store_summary` 可省略，勿传 `True`）：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_code=["10001234"], store_type=["1"], size=10)
+get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_codes=["10001234"], store_type=["1"], size=10)
 ```
 
 用户明确只要这几个商品的合计：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_code=["10001234", "10001235"], store_type=["1"], size=1)
+get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_codes=["10001234", "10001235"], store_type=["1"], size=1)
 ```
 
 用户说「各直营店分别多少」：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_code=["10001234"], store_type=["1"], is_store_summary=True, size=10)
+get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_codes=["10001234"], store_type=["1"], is_store_summary=True, size=10)
 ```
 
 用户选定两个规格，要分别看销量、不要各店：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_code=["10001234", "10001235"], store_type=["1"], size=10)
+get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_codes=["10001234", "10001235"], store_type=["1"], size=10)
 ```
 
 已有门店编码 `1001`、租户 `1`、商品编码 `10001234`。用户问五星路店这个月这款药卖了多少：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-01", end_date="2026-10-20", goods_code=["10001234"], store_code=["1001"], tenant_id=1, is_store_summary=True, size=10)
+get_store_goods_retail_info(start_date="2026-10-01", end_date="2026-10-20", goods_codes=["10001234"], store_code=["1001"], tenant_id=1, is_store_summary=True, size=10)
 ```
 
 已从区域树收集到「西南区」及其正常下级 `"101"`、`"102"`、`"103"`。用户没提加盟、没说各店，查该区域该商品，只查直营、报当前页：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_code=["10001234"], region_id=["101", "102", "103"], store_type=["1"], size=10)
+get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_codes=["10001234"], region_id=["101", "102", "103"], store_type=["1"], size=10)
 ```
 
 用户明确要直营和加盟一起、且要各店分别：
 
 ```
-get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_code=["10001234"], store_type=[], is_store_summary=True, size=10)
+get_store_goods_retail_info(start_date="2026-10-20", end_date="2026-10-20", goods_codes=["10001234"], store_type=[], is_store_summary=True, size=10)
 ```
 

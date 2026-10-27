@@ -485,6 +485,7 @@ async def inventory_audit_summary_report(
     profit_loss_status: List[str] = [],
     is_profit_loss: List[str] = ["是"],
     store_type: List[str] = ["1"],
+    goods_codes: List[str] = [],
     is_store_summary: bool = True,
 ):
     """
@@ -507,6 +508,7 @@ async def inventory_audit_summary_report(
             - 是 否
         store_type (List[str]): 门店类型
             - 1-直营 2-加盟
+        goods_codes (List[str]): 商品编码列表
         is_store_summary (bool): 是否按门店汇总
     Returns:
         dict: 库存盘点汇总报表数据
@@ -554,6 +556,11 @@ async def inventory_audit_summary_report(
             "field": "F_1_75_F",
             "rule": "in",
             "val": store_type
+        },
+        {  # 商品编码列表
+            "field": "F_1_3_F",
+            "rule": "in",
+            "val": goods_codes
         }
     ]
     payload = {
