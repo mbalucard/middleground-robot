@@ -8,7 +8,7 @@ from typing import Optional, List
 from robot.agents.model_context import Context
 
 from api.virtue_bright.bi import inventory_report, inventory_audit_summary_report
-from utils.virtue_bright_erp.data_process import inventory_data_process, inventory_audit_data_process
+from utils.virtue_bright_erp.data_process import inventory_data_process, inventory_audit_data_process,inventory_audit_summary_data_process
 
 
 @tool('get_inventory_data', description='获取商品库存数据')
@@ -136,6 +136,7 @@ async def get_inventory_audit_summary_data(
         data_list = inventory_audit_data_process(
             data_json, is_summary=is_store_summary)
         total_summary = data.get('data').get('totalSummary')
+        total_summary = inventory_audit_summary_data_process(total_summary,is_summary=is_store_summary)
         pages = data.get('data').get('pages')
         total = data.get('data').get('total')
         return {

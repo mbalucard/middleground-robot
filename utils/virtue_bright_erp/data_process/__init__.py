@@ -10,6 +10,7 @@
     - store_goods_retail_summary_data_process: 门店商品汇总报表汇总数据处理
     - region_tree_data_process: 区域树数据处理-查询用
     - inventory_audit_data_process: 库存盘点数据处理
+    - inventory_audit_summary_data_process: 库存盘点汇总数据处理
 """
 
 from utils.virtue_bright_erp.data_process.ins_data import (
@@ -23,6 +24,7 @@ from utils.virtue_bright_erp.data_process.goods_data import (
 from utils.virtue_bright_erp.data_process.inventory_data import (
     inventory_data_process,
     inventory_audit_data_process,
+    inventory_audit_summary_data_process,
 )
 from utils.virtue_bright_erp.data_process.sale_data import (
     shop_sale_data_process,
@@ -42,4 +44,5 @@ __all__ = [
     "store_goods_retail_summary_data_process",
     "region_tree_data_process",
     "inventory_audit_data_process",
+    "inventory_audit_summary_data_process",
 ]

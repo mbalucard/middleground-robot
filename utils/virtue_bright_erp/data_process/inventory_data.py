@@ -122,3 +122,39 @@ def inventory_audit_data_process(
     df_data = df.loc[:, columns_names]
     data_dict = df_data.to_dict(orient='records')
     return data_dict
+
+
+def inventory_audit_summary_data_process(
+        data_json: dict,
+        is_summary: bool = True):
+    """
+    库存盘点汇总数据处理
+    用以处理德明接口 inventory_audit_summary_report 返回的totalSummary数据
+    Args:
+        data_json (list[dict]): totalSummary数据列表
+        is_summary (bool): 是否汇总数据
+    Returns:
+        list[dict]: 处理后的totalSummary数据
+    """
+    columns_dict = {
+        'snapshotQuantity': "账面库存数量",
+        'snapshotCost': "账面库存成本额",
+        'ivOutQty': "出库数量",
+        'inventoryQuantity': "盘点数量",
+        'ivInQty': "入库数量",
+        'costProfitLossStatus': "盈亏状态",
+        'ivObjectId_2_0_0': "盘点品相数",
+        'profitLossQuantity': "盈亏数量",
+        'stockCost': "盘点库存成本额",
+        'profitLossCostAmt': "盈亏成本额"
+    }
+    if is_summary:
+        columns_names = ["账面库存数量", "账面库存成本额", "出库数量", "入库数量",
+                         "盘点数量", "盈亏状态", "盘点品相数", "盈亏数量", "盘点库存成本额", "盈亏成本额"]
+    else:
+        columns_names = ["账面库存数量", "出库数量", "入库数量", "盘点数量", "盈亏数量", "盈亏成本额"]
+    df = pd.DataFrame([data_json])
+    df = df.rename(columns=columns_dict)
+    df_data = df.loc[:, columns_names]
+    data_dict = df_data.to_dict(orient='records')
+    return data_dict[0] if data_dict else {}
