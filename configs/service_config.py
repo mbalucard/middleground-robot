@@ -60,6 +60,14 @@ class DemingMySQL:
     database = 'salus_deming_c'
     data_source = 'ERP_产线'
 
+class EmailConfig:
+    """邮箱配置"""
+    SMTP_SERVER = os.getenv('WY_SMTP_SERVER')
+    SMTP_PORT = os.getenv('WY_SMTP_PORT',994)
+    USERNAME = os.getenv('WY_USERNAME')
+    PASSWORD = os.getenv('WY_PASSWORD')
+
 
 if __name__ == "__main__":
     print(ConfigAPI.HOST)
+    print(EmailConfig.SMTP_SERVER)

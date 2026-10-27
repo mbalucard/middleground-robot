@@ -109,7 +109,6 @@ def report_field_args(
             "6575",
             "6584"
         ]
-        return {"orderFields": orderFields, "reportFieldIds": reportFieldIds}
     elif report_code == 61:
         orderFields = [
             {
@@ -240,7 +239,6 @@ def report_field_args(
             "6312",
             "6313"
         ]
-        return {"orderFields": orderFields, "reportFieldIds": reportFieldIds}
     elif report_code == 32:
         orderFields = [
             {
@@ -381,7 +379,6 @@ def report_field_args(
             "4743",
             "4744"
         ]
-        return {"orderFields": orderFields, "reportFieldIds": reportFieldIds}
     elif report_code == 31:
         if is_summary:
             orderFields = [
@@ -503,7 +500,7 @@ def report_field_args(
                 "7462",
                 "7464"
             ]
-            return {"orderFields": orderFields, "reportFieldIds": reportFieldIds}
+
         else:
             orderFields = [
                 {
@@ -609,6 +606,180 @@ def report_field_args(
                 "7462",
                 "7464"
             ]
-            return {"orderFields": orderFields, "reportFieldIds": reportFieldIds}
+
+    elif report_code == 185:
+        if is_summary:
+            orderFields = [
+                {
+                    "field": "F_3_27338_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27334_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27326_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27327_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27328_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_34821_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27388_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_103755_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_103756_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27389_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27390_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_128514_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_128513_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_34823_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_120733_F",
+                    "order": None
+                }
+            ]
+            reportFieldIds = [
+                "27338",
+                "27334",
+                "27326",
+                "27327",
+                "27328",
+                "34821",
+                "27388",
+                "103755",
+                "103756",
+                "27389",
+                "27390",
+                "128514",
+                "128513",
+                "34823",
+                "120733"
+            ]
+        else:
+            orderFields = [
+                {
+                    "field": "F_3_27338_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27348_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27349_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27350_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27351_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27357_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27352_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27359_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27353_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27363_F",
+                    "order": "ascend"
+                },
+                {
+                    "field": "F_3_27388_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_103755_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_103756_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27389_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_27390_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_34823_F",
+                    "order": None
+                },
+                {
+                    "field": "F_3_120733_F",
+                    "order": None
+                }
+            ]
+            reportFieldIds = [
+                "27338",
+                "27348",
+                "27349",
+                "27350",
+                "27351",
+                "27357",
+                "27352",
+                "27359",
+                "27353",
+                "27363",
+                "27388",
+                "103755",
+                "103756",
+                "27389",
+                "27390",
+                "34823",
+                "120733"
+            ]
     else:
-        return {"orderFields": None, "reportFieldIds": None}
+        orderFields = None
+        reportFieldIds = None
+    data_json = {"orderFields": orderFields, "reportFieldIds": reportFieldIds}
+    return data_json

@@ -21,16 +21,15 @@ TTL = yaoud_env["timeout"]
 
 
 async def inventory_report(
-    authorization: str,
-    tenant_id: Optional[int] = None,
-    current: int = 1,
-    size: int = 20,
-    codes: List[str] = [],
-    mnemonic_code: Optional[str] = None,
-    shop_type: List[str] = [],
-    warehouse_id: List[str] = [],
-    is_summary: bool = True,
-):
+        authorization: str,
+        tenant_id: Optional[int] = None,
+        current: int = 1,
+        size: int = 20,
+        codes: List[str] = [],
+        mnemonic_code: Optional[str] = None,
+        shop_type: List[str] = [],
+        warehouse_id: List[str] = [],
+        is_summary: bool = True,):
     """
     库存报表
     Args:
@@ -234,16 +233,15 @@ async def warehouse_information(
 
 
 async def store_retail_report(
-    authorization: str,
-    start_date: str,
-    end_date: str,
-    store_code: List[str] = [],
-    store_type: List[str] = [],
-    belongRegion: List[str] = [],
-    tenant_id: Optional[int] = None,
-    current: int = 1,
-    size: int = 20,
-):
+        authorization: str,
+        start_date: str,
+        end_date: str,
+        store_code: List[str] = [],
+        store_type: List[str] = [],
+        belongRegion: List[str] = [],
+        tenant_id: Optional[int] = None,
+        current: int = 1,
+        size: int = 20,):
     """
     门店零汇总报表
     Args:
@@ -457,6 +455,130 @@ async def store_goods_retail_report(
                 data_json['data']['total'] = total
                 data_json['data']['pages'] = total // size + 1
 
+        if not data_json.get("data").get("totalSummary"):
+            sum_data = await _report_sum(
+                authorization=authorization,
+                conditions=conditions,
+                reportFieldIds=reportFieldIds,
+                tenant_id=tenant_id,
+                report_code=report_code,
+            )
+            total_summary = sum_data.get("data").get("totalSummary")
+            if total_summary:
+                data_json['data']['totalSummary'] = sum_data.get(
+                    "data").get("totalSummary")
+    if data_json['data']['size'] != size:
+        data_json['data']['current'] = current
+        data_json['data']['size'] = size
+    return data_json
+
+
+async def inventory_audit_summary_report(
+    authorization: str,
+    start_date: str,
+    end_date: str,
+    tenant_id: Optional[int] = None,
+    current: int = 1,
+    size: int = 20,
+    take_stock_type: List[str] = [],
+    warehouse_id: List[str] = [],
+    profit_loss_status: List[str] = [],
+    is_profit_loss: List[str] = ["是"],
+    store_type: List[str] = ["1"],
+    is_store_summary: bool = True,
+):
+    """
+    库存盘点汇总报表
+    Args:
+        authorization (str): 授权token
+        start_date (str): 制单开始日期
+            - 格式为YYYY-MM-DD
+        end_date (str): 制单结束日期
+            - 格式为YYYY-MM-DD
+        tenant_id (Optional[int]): 租户ID
+        current (int): 当前页码
+        size (int): 每页大小
+        take_stock_type (List[str]): 盘点类型
+            - 1-抽盘 2-全盘
+        warehouse_id (List[str]): 仓库ID
+        profit_loss_status (List[str]): 盈亏状态
+            - 不盈不亏 盘盈 盘亏
+        is_profit_loss (List[str]): 是否产生盈亏
+            - 是 否
+        store_type (List[str]): 门店类型
+            - 1-直营 2-加盟
+        is_store_summary (bool): 是否按门店汇总
+    Returns:
+        dict: 库存盘点汇总报表数据
+    """
+    report_code = 185
+    url = f"{base_url}/query/{report_code}/list"
+    headers = {
+        "authorization": authorization,  # 必须
+        "client-tom": "Y",
+        "tenant-id": str(tenant_id) if tenant_id else "",
+    }
+    report_args = report_field_args(report_code, is_summary=is_store_summary)
+    orderFields = report_args.get("orderFields")
+    reportFieldIds = report_args.get("reportFieldIds")
+    conditions = [
+        {  # 制单日期
+            "field": "F_1_1895_F",
+            "rule": "between",
+            "val": [
+                start_date,
+                end_date
+            ]
+        },
+        {  # 盘点类型 1-抽盘 2-全盘
+            "field": "F_1_1903_F",
+            "rule": "in",
+            "val": take_stock_type
+        },
+        {  # 仓库ID
+            "field": "F_1_600_F",
+            "rule": "in",
+            "val": warehouse_id
+        },
+        {  # 是否产生盈亏 是 否
+            "field": "F_3_107995_F",
+            "rule": "in",
+            "val": is_profit_loss
+        },
+        {  # 盈亏状态 ["不盈不亏", "盘盈", "盘亏"]
+            "field": "F_3_120733_F",
+            "rule": "in",
+            "val": profit_loss_status
+        },
+        {  # 门店类型 1-直营 2-加盟
+            "field": "F_1_75_F",
+            "rule": "in",
+            "val": store_type
+        }
+    ]
+    payload = {
+        "current": current,
+        "size": size,
+        "conditions": conditions,
+        "orderFields": orderFields,
+        "reportFieldIds": reportFieldIds
+    }
+    async with AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=payload, timeout=TTL)
+    data_json = response.json()
+    if data_json.get("data").get("records"):
+        if data_json.get("data").get("total") == 0:
+            count_data = await _report_count(
+                authorization=authorization,
+                conditions=conditions,
+                reportFieldIds=reportFieldIds,
+                tenant_id=tenant_id,
+                report_code=report_code,
+            )
+            total = count_data.get("data").get("total")
+            if total > 0:
+                data_json['data']['total'] = total
+                data_json['data']['pages'] = total // size + 1
         if not data_json.get("data").get("totalSummary"):
             sum_data = await _report_sum(
                 authorization=authorization,
