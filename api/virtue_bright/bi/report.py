@@ -43,6 +43,7 @@ async def inventory_report(
             - 1-直营, 2-加盟 
         warehouse_id (List[str]): 仓库ID
             - 可在 warehouse_information 接口中查询
+        is_summary (bool): 是否按门店汇总
     Returns:
         dict: 库存报表数据
     """
@@ -88,79 +89,47 @@ async def inventory_report(
         "size": size,
         "conditions": conditions,
         "orderFields": orderFields,
-        "reportFieldIds": reportFieldIds
+        "reportFieldIds": reportFieldIds,
+        "reportId": report_code
     }
 
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
 
     result = response.json()
-    #! 就是因为写接口的人偷懒不写total和pages，所以这里需要自己计算
-    data = result.get("data")
-    if isinstance(data, dict):
-        if data.get("records"):
-            if data.get("total") == 0:
-                count_data = await _report_count(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total = count_data.get("data").get("total")
 
-                if total > 0:
-                    result['data']['total'] = total
-                    result['data']['pages'] = total // size + 1
-
-            # 计算总合计
-            if not data.get("totalSummary"):
-                sum_data = await _report_sum(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total_summary = sum_data.get("data").get("totalSummary")
-                if total_summary:
-                    result['data']['totalSummary'] = sum_data.get(
-                        "data").get("totalSummary")
-
-            if data.get('size') != size:
-                result['data']['current'] = current
-                result['data']['size'] = size
+    data = await _result_data_processing(
+        result=result,
+        authorization=authorization,
+        request_dict=payload,
+        tenant_id=tenant_id,
+    )
+    result['data'] = data
     return result
-
-    
 
 
 async def _report_count(
         authorization: str,
-        report_code: str,
-        conditions: List[dict],
-        reportFieldIds: List[str],
+        request_dict: dict,
         tenant_id: Optional[int] = None,):
     """
     库存报表条目数
     Args:
         authorization (str): 授权token
-        report_code (str): 报表代码
-        conditions (List[dict]): 查询条件
-        reportFieldIds (List[str]): 报表字段ID
+        request_dict (dict): 请求参数
         tenant_id (Optional[int]): 租户ID
     Returns:
         dict: 库存报表条目数
     """
-    url = f"{base_url}/query/{report_code}/count"
+    url = f"{base_url}/query/{request_dict.get('reportId')}/count"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
         "tenant-id": str(tenant_id) if tenant_id else "",
     }
     payload = {
-        "conditions": conditions,
-        "reportFieldIds": reportFieldIds,
+        "conditions": request_dict.get('conditions'),
+        "reportFieldIds": request_dict.get('reportFieldIds'),
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
@@ -169,34 +138,78 @@ async def _report_count(
 
 async def _report_sum(
         authorization: str,
-        report_code: str,
-        conditions: List[dict],
-        reportFieldIds: List[str],
+        request_dict: dict,
         tenant_id: Optional[int] = None,):
     """
     库存报表合计
     Args:
         authorization (str): 授权token
-        conditions (List[dict]): 查询条件
-        reportFieldIds (List[str]): 报表字段ID
+        request_dict (dict): 请求参数
         tenant_id (Optional[int]): 租户ID
-        report_code (str): 报表代码
     Returns:
         dict: 库存报表合计
     """
-    url = f"{base_url}/query/{report_code}/sum"
+    url = f"{base_url}/query/{request_dict.get('reportId')}/sum"
     headers = {
         "authorization": authorization,  # 必须
         "client-tom": "Y",
         "tenant-id": str(tenant_id) if tenant_id else "",
     }
     payload = {
-        "conditions": conditions,
-        "reportFieldIds": reportFieldIds,
+        "conditions": request_dict.get('conditions'),
+        "reportFieldIds": request_dict.get('reportFieldIds'),
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
     return response.json()
+
+
+async def _result_data_processing(
+        result: dict,
+        authorization: str,
+        request_dict: dict,
+        tenant_id: Optional[int] = None,):
+    """
+    报表结果数据处理
+    #! 就是因为写接口的人偷懒不写total和pages，所以这里需要自己计算
+    Args:
+        result (dict): 结果数据
+        authorization (str): 授权token
+        request_dict (dict): 请求参数
+        tenant_id (Optional[int]): 租户ID
+    Returns:
+        dict: 报表结果数据
+    """
+    data = result.get('data')
+    if isinstance(data, dict):
+        if data.get('records'):
+            if data.get("total") == 0:
+                count_data = await _report_count(
+                    authorization=authorization,
+                    request_dict=request_dict,
+                    tenant_id=tenant_id
+                )
+                total = count_data.get('data').get('total')
+
+                if total > 0:
+                    data['total'] = total
+                    data['pages'] = total // request_dict.get('size', 1) + 1
+
+            # 计算总合计
+            if not data.get("totalSummary"):
+                sum_data = await _report_sum(
+                    authorization=authorization,
+                    request_dict=request_dict,
+                    tenant_id=tenant_id,
+                )
+                total_summary = sum_data.get('data').get('totalSummary')
+                if total_summary:
+                    data['totalSummary'] = total_summary
+
+            if data.get('size') != request_dict.get('size'):
+                data['current'] = request_dict.get('current')
+                data['size'] = request_dict.get('size')
+    return data
 
 
 async def warehouse_information(
@@ -313,58 +326,34 @@ async def store_retail_report(
         "size": size,
         "conditions": conditions,
         "orderFields": orderFields,
-        "reportFieldIds": reportFieldIds
+        "reportFieldIds": reportFieldIds,
+        "reportId": report_code
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
     result = response.json()
-    data = result.get("data")
-    if isinstance(data, dict):
-        if data.get("records"):
-            if data.get("total") == 0:
-                count_data = await _report_count(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total = count_data.get("data").get("total")
-                if total > 0:
-                    result['data']['total'] = total
-                    result['data']['pages'] = total // size + 1
-
-            if not data.get("totalSummary"):
-                sum_data = await _report_sum(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total_summary = sum_data.get("data").get("totalSummary")
-                if total_summary:
-                    result['data']['totalSummary'] = sum_data.get(
-                        "data").get("totalSummary")
-            if data.get('size') != size:
-                result['data']['current'] = current
-                result['data']['size'] = size
-
+    data = await _result_data_processing(
+        result=result,
+        authorization=authorization,
+        request_dict=payload,
+        tenant_id=tenant_id,
+    )
+    result['data'] = data
     return result
 
 
 async def store_goods_retail_report(
-    authorization: str,
-    start_date: str,
-    end_date: str,
-    store_code: List[str] = [],
-    store_type: List[str] = [],
-    belongRegion: List[str] = [],
-    goods_code: List[str] = [],
-    tenant_id: Optional[int] = None,
-    is_store_summary: bool = False,
-    current: int = 1,
-    size: int = 20,):
+        authorization: str,
+        start_date: str,
+        end_date: str,
+        store_code: List[str] = [],
+        store_type: List[str] = [],
+        belongRegion: List[str] = [],
+        goods_code: List[str] = [],
+        tenant_id: Optional[int] = None,
+        is_store_summary: bool = False,
+        current: int = 1,
+        size: int = 20,):
     """
     门店商品汇总报表
     Args:
@@ -438,59 +427,36 @@ async def store_goods_retail_report(
         "size": size,
         "conditions": conditions,
         "orderFields": orderFields,
-        "reportFieldIds": reportFieldIds
+        "reportFieldIds": reportFieldIds,
+        "reportId": report_code
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
     result = response.json()
-    data = result.get("data")
-    if isinstance(data, dict):
-        if data.get("records"):
-            if data.get("total") == 0:
-                count_data = await _report_count(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total = count_data.get("data").get("total")
-                if total > 0:
-                    result['data']['total'] = total
-                    result['data']['pages'] = total // size + 1
-
-            if not data.get("totalSummary"):
-                sum_data = await _report_sum(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total_summary = sum_data.get("data").get("totalSummary")
-                if total_summary:
-                    result['data']['totalSummary'] = sum_data.get(
-                        "data").get("totalSummary")
-            if data.get('size') != size:
-                result['data']['current'] = current
-                result['data']['size'] = size
+    data = await _result_data_processing(
+        result=result,
+        authorization=authorization,
+        request_dict=payload,
+        tenant_id=tenant_id,
+    )
+    result['data'] = data
     return result
 
 
 async def inventory_audit_summary_report(
-    authorization: str,
-    start_date: str,
-    end_date: str,
-    tenant_id: Optional[int] = None,
-    current: int = 1,
-    size: int = 20,
-    take_stock_type: List[str] = [],
-    warehouse_id: List[str] = [],
-    profit_loss_status: List[str] = [],
-    is_profit_loss: List[str] = ["是"],
-    store_type: List[str] = ["1"],
-    goods_codes: List[str] = [],
-    is_store_summary: bool = True,):
+        authorization: str,
+        start_date: str,
+        end_date: str,
+        tenant_id: Optional[int] = None,
+        current: int = 1,
+        size: int = 20,
+        take_stock_type: List[str] = [],
+        warehouse_id: List[str] = [],
+        profit_loss_status: List[str] = [],
+        is_profit_loss: List[str] = ["是"],
+        store_type: List[str] = ["1"],
+        goods_codes: List[str] = [],
+        is_store_summary: bool = True,):
     """
     库存盘点汇总报表
     Args:
@@ -571,39 +537,17 @@ async def inventory_audit_summary_report(
         "size": size,
         "conditions": conditions,
         "orderFields": orderFields,
-        "reportFieldIds": reportFieldIds
+        "reportFieldIds": reportFieldIds,
+        "reportId": report_code
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
     result = response.json()
-    data = result.get("data")
-    if isinstance(data, dict):
-        if data.get("records"):
-            if data.get("total") == 0:
-                count_data = await _report_count(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total = count_data.get("data").get("total")
-                if total > 0:
-                    result['data']['total'] = total
-                    result['data']['pages'] = total // size + 1
-            if not data.get("totalSummary"):
-                sum_data = await _report_sum(
-                    authorization=authorization,
-                    conditions=conditions,
-                    reportFieldIds=reportFieldIds,
-                    tenant_id=tenant_id,
-                    report_code=report_code,
-                )
-                total_summary = sum_data.get("data").get("totalSummary")
-                if total_summary:
-                    result['data']['totalSummary'] = sum_data.get(
-                        "data").get("totalSummary")
-            if data.get('size') != size:
-                result['data']['current'] = current
-                result['data']['size'] = size
+    data = await _result_data_processing(
+        result=result,
+        authorization=authorization,
+        request_dict=payload,
+        tenant_id=tenant_id,
+    )
+    result['data'] = data
     return result
