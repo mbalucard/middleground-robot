@@ -134,4 +134,3 @@ def region_tree_data_process(data_json: List[dict]):
     df_data['区域状态'] = df_data['区域状态'].map(shop_status)
     data_dict = df_data.to_dict(orient='records')
     return data_dict
-    

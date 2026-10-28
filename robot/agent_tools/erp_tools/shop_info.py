@@ -7,7 +7,7 @@
 
 
 from langchain.tools import tool, ToolRuntime
-from typing import Optional
+from typing import Optional, List
 from robot.agents.model_context import Context
 
 from api.virtue_bright.bi import warehouse_information
@@ -35,25 +35,31 @@ async def get_warehouse_info(
     authorization = runtime.context.api_key if runtime and runtime.context else None
     if not authorization:
         return {"status": "error", "message": "未授权"}
-    data = await warehouse_information(
+    result = await warehouse_information(
         authorization=authorization,
         keyword=keyword,
         current=current,
         size=size
     )
-    data_json = data.get('data').get('records')
-    if data_json:
-        data_list = warehouse_information_data_process(data_json)
-        return {
-            "status": "success",
-            "data": data_list,
-            "page_info": {
-                "current": current,
-                "size": size,
-                "pages": data.get('data').get('pages'),
-                "total": data.get('data').get('total'),
+    data = result.get('data')
+    if isinstance(data, dict):
+        data_json = result.get('data').get('records')
+        if isinstance(data_json, List):
+            data_list = warehouse_information_data_process(data_json)
+            return {
+                "status": "success",
+                "data": data_list,
+                "page_info": {
+                    "current": current,
+                    "size": size,
+                    "pages": result.get('data').get('pages'),
+                    "total": result.get('data').get('total'),
+                }
             }
-        }
+        else:
+            return {"status": "success","data":[]} 
+    elif isinstance(data, str):
+        return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
         return {"status": "error", "message": "未找到店铺信息"}
 
@@ -80,26 +86,32 @@ async def get_shop_available_info(
     authorization = runtime.context.api_key if runtime and runtime.context else None
     if not authorization:
         return {"status": "error", "message": "未授权"}
-    data = await get_shop_info(
+    result = await get_shop_info(
         authorization=authorization,
         keyword=keyword,
         current=current,
         size=size,
         tenant_id=tenant_id
     )
-    data_json = data.get('data').get('records')
-    if data_json:
-        data_list = shop_info_data_process(data_json)
-        return {
-            "status": "success",
-            "data": data_list,
-            "page_info": {
-                "current": current,
-                "size": size,
-                "pages": data.get('data').get('pages'),
-                "total": data.get('data').get('total'),
+    data = result.get('data')
+    if isinstance(data, dict):
+        data_json = result.get('data').get('records')
+        if isinstance(data_json, List):
+            data_list = shop_info_data_process(data_json)
+            return {
+                "status": "success",
+                "data": data_list,
+                "page_info": {
+                    "current": current,
+                    "size": size,
+                    "pages": result.get('data').get('pages'),
+                    "total": result.get('data').get('total'),
+                }
             }
-        }
+        else:
+            return {"status": "success","data":[]} 
+    elif isinstance(data, str):
+        return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
         return {"status": "error", "message": "未找到可用门店信息"}
 
@@ -119,16 +131,18 @@ async def get_region_tree_info(
     authorization = runtime.context.api_key if runtime and runtime.context else None
     if not authorization:
         return {"status": "error", "message": "未授权"}
-    data = await query_region_tree(
+    result = await query_region_tree(
         authorization=authorization,
         tenant_id=tenant_id
     )
-    data_json = data.get('data')
-    if data_json:
-        data_list = region_tree_data_process(data_json)
+    data = result.get('data')
+    if isinstance(data, List):
+        data_list = region_tree_data_process(data)
         return {
             "status": "success",
             "data": data_list,
         }
+    elif isinstance(data, str):
+        return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
         return {"status": "error", "message": "未找到区域树信息"}

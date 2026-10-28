@@ -4,7 +4,7 @@
 """
 
 from langchain.tools import tool, ToolRuntime
-from typing import Optional
+from typing import Optional, List
 from robot.agents.model_context import Context
 
 from api.virtue_bright.product.bs import goods_page_list
@@ -40,7 +40,7 @@ async def get_goods_info(
     authorization = runtime.context.api_key if runtime and runtime.context else None
     if not authorization:
         return {"status": "error", "message": "未授权"}
-    data = await goods_page_list(
+    result = await goods_page_list(
         authorization=authorization,
         codes=goods_code,
         name=goods_name,
@@ -51,18 +51,24 @@ async def get_goods_info(
         current=current,
         size=size
     )
-    data_json = data.get('data').get('records')
-    if data_json:
-        data_list = goods_data_process(data_json)
-        return {
-            "status": "success",
-            "data": data_list,
-            "page_info": {
-                "current": current,
-                "size": size,
-                "pages": data.get('data').get('pages'),
-                "total": data.get('data').get('total'),
+    data = result.get('data')
+    if isinstance(data, dict):
+        data_json = data.get('records')
+        if isinstance(data_json, List):
+            data_list = goods_data_process(data_json)
+            return {
+                "status": "success",
+                "data": data_list,
+                "page_info": {
+                    "current": current,
+                    "size": size,
+                    "pages": data.get('pages'),
+                    "total": data.get('total'),
+                }
             }
-        }
+        else:
+            return {"status": "success","data":[]} 
+    elif isinstance(data, str):
+        return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
         return {"status": "error", "message": "未找到商品信息"}

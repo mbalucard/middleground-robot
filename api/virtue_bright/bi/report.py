@@ -94,42 +94,45 @@ async def inventory_report(
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
 
-    data_dict = response.json()
+    result = response.json()
     #! 就是因为写接口的人偷懒不写total和pages，所以这里需要自己计算
-    if data_dict.get("data").get("records"):
-        if data_dict.get("data").get("total") == 0:
-            count_data = await _report_count(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total = count_data.get("data").get("total")
+    data = result.get("data")
+    if isinstance(data, dict):
+        if data.get("records"):
+            if data.get("total") == 0:
+                count_data = await _report_count(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total = count_data.get("data").get("total")
 
-            if total > 0:
-                data_dict['data']['total'] = total
-                data_dict['data']['pages'] = total // size + 1
+                if total > 0:
+                    result['data']['total'] = total
+                    result['data']['pages'] = total // size + 1
 
-        # 计算总合计
-        if not data_dict.get("data").get("totalSummary"):
-            sum_data = await _report_sum(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total_summary = sum_data.get("data").get("totalSummary")
-            if total_summary:
-                data_dict['data']['totalSummary'] = sum_data.get(
-                    "data").get("totalSummary")
+            # 计算总合计
+            if not data.get("totalSummary"):
+                sum_data = await _report_sum(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total_summary = sum_data.get("data").get("totalSummary")
+                if total_summary:
+                    result['data']['totalSummary'] = sum_data.get(
+                        "data").get("totalSummary")
 
-    if data_dict['data']['size'] != size:
-        data_dict['data']['current'] = current
-        data_dict['data']['size'] = size
+            if data.get('size') != size:
+                result['data']['current'] = current
+                result['data']['size'] = size
+    return result
 
-    return data_dict
+    
 
 
 async def _report_count(
@@ -314,39 +317,40 @@ async def store_retail_report(
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
-    data_json = response.json()
+    result = response.json()
+    data = result.get("data")
+    if isinstance(data, dict):
+        if data.get("records"):
+            if data.get("total") == 0:
+                count_data = await _report_count(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total = count_data.get("data").get("total")
+                if total > 0:
+                    result['data']['total'] = total
+                    result['data']['pages'] = total // size + 1
 
-    if data_json.get("data").get("records"):
-        if data_json.get("data").get("total") == 0:
-            count_data = await _report_count(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total = count_data.get("data").get("total")
-            if total > 0:
-                data_json['data']['total'] = total
-                data_json['data']['pages'] = total // size + 1
+            if not data.get("totalSummary"):
+                sum_data = await _report_sum(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total_summary = sum_data.get("data").get("totalSummary")
+                if total_summary:
+                    result['data']['totalSummary'] = sum_data.get(
+                        "data").get("totalSummary")
+            if data.get('size') != size:
+                result['data']['current'] = current
+                result['data']['size'] = size
 
-        if not data_json.get("data").get("totalSummary"):
-            sum_data = await _report_sum(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total_summary = sum_data.get("data").get("totalSummary")
-            if total_summary:
-                data_json['data']['totalSummary'] = sum_data.get(
-                    "data").get("totalSummary")
-    if data_json['data']['size'] != size:
-        data_json['data']['current'] = current
-        data_json['data']['size'] = size
-
-    return data_json
+    return result
 
 
 async def store_goods_retail_report(
@@ -360,8 +364,7 @@ async def store_goods_retail_report(
     tenant_id: Optional[int] = None,
     is_store_summary: bool = False,
     current: int = 1,
-    size: int = 20,
-):
+    size: int = 20,):
     """
     门店商品汇总报表
     Args:
@@ -439,38 +442,39 @@ async def store_goods_retail_report(
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
-    data_json = response.json()
+    result = response.json()
+    data = result.get("data")
+    if isinstance(data, dict):
+        if data.get("records"):
+            if data.get("total") == 0:
+                count_data = await _report_count(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total = count_data.get("data").get("total")
+                if total > 0:
+                    result['data']['total'] = total
+                    result['data']['pages'] = total // size + 1
 
-    if data_json.get("data").get("records"):
-        if data_json.get("data").get("total") == 0:
-            count_data = await _report_count(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total = count_data.get("data").get("total")
-            if total > 0:
-                data_json['data']['total'] = total
-                data_json['data']['pages'] = total // size + 1
-
-        if not data_json.get("data").get("totalSummary"):
-            sum_data = await _report_sum(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total_summary = sum_data.get("data").get("totalSummary")
-            if total_summary:
-                data_json['data']['totalSummary'] = sum_data.get(
-                    "data").get("totalSummary")
-    if data_json['data']['size'] != size:
-        data_json['data']['current'] = current
-        data_json['data']['size'] = size
-    return data_json
+            if not data.get("totalSummary"):
+                sum_data = await _report_sum(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total_summary = sum_data.get("data").get("totalSummary")
+                if total_summary:
+                    result['data']['totalSummary'] = sum_data.get(
+                        "data").get("totalSummary")
+            if data.get('size') != size:
+                result['data']['current'] = current
+                result['data']['size'] = size
+    return result
 
 
 async def inventory_audit_summary_report(
@@ -486,8 +490,7 @@ async def inventory_audit_summary_report(
     is_profit_loss: List[str] = ["是"],
     store_type: List[str] = ["1"],
     goods_codes: List[str] = [],
-    is_store_summary: bool = True,
-):
+    is_store_summary: bool = True,):
     """
     库存盘点汇总报表
     Args:
@@ -572,33 +575,35 @@ async def inventory_audit_summary_report(
     }
     async with AsyncClient() as client:
         response = await client.post(url, headers=headers, json=payload, timeout=TTL)
-    data_json = response.json()
-    if data_json.get("data").get("records"):
-        if data_json.get("data").get("total") == 0:
-            count_data = await _report_count(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total = count_data.get("data").get("total")
-            if total > 0:
-                data_json['data']['total'] = total
-                data_json['data']['pages'] = total // size + 1
-        if not data_json.get("data").get("totalSummary"):
-            sum_data = await _report_sum(
-                authorization=authorization,
-                conditions=conditions,
-                reportFieldIds=reportFieldIds,
-                tenant_id=tenant_id,
-                report_code=report_code,
-            )
-            total_summary = sum_data.get("data").get("totalSummary")
-            if total_summary:
-                data_json['data']['totalSummary'] = sum_data.get(
-                    "data").get("totalSummary")
-    if data_json['data']['size'] != size:
-        data_json['data']['current'] = current
-        data_json['data']['size'] = size
-    return data_json
+    result = response.json()
+    data = result.get("data")
+    if isinstance(data, dict):
+        if data.get("records"):
+            if data.get("total") == 0:
+                count_data = await _report_count(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total = count_data.get("data").get("total")
+                if total > 0:
+                    result['data']['total'] = total
+                    result['data']['pages'] = total // size + 1
+            if not data.get("totalSummary"):
+                sum_data = await _report_sum(
+                    authorization=authorization,
+                    conditions=conditions,
+                    reportFieldIds=reportFieldIds,
+                    tenant_id=tenant_id,
+                    report_code=report_code,
+                )
+                total_summary = sum_data.get("data").get("totalSummary")
+                if total_summary:
+                    result['data']['totalSummary'] = sum_data.get(
+                        "data").get("totalSummary")
+            if data.get('size') != size:
+                result['data']['current'] = current
+                result['data']['size'] = size
+    return result

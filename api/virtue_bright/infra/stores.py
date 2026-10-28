@@ -20,7 +20,7 @@ TTL = yaoud_env["timeout"]
 
 async def query_region_tree(
     authorization: str,
-    tenant_id: int,):
+    tenant_id: Optional[int] = None,):
     """
     获取区域信息-查询用
 

@@ -40,7 +40,7 @@ async def get_inventory_data(
     if not authorization:
         return {"status": "error", "message": "未授权"}
 
-    data = await inventory_report(
+    result = await inventory_report(
         authorization=authorization,
         tenant_id=tenant_id,
         current=current,
@@ -51,23 +51,29 @@ async def get_inventory_data(
         warehouse_id=warehouse_id,
         is_summary=is_summary,
     )
-    data_json = data.get('data').get('records')
-    if data_json:
-        data_list = inventory_data_process(data_json, is_summary=is_summary)
-        total_summary = data.get('data').get('totalSummary')
-        pages = data.get('data').get('pages')
-        total = data.get('data').get('total')
-        return {
-            "status": "success",
-            "data": data_list,
-            "total_summary": total_summary,
-            "page_info": {
-                "current": current,
-                "size": size,
-                "pages": pages,
-                "total": total,
+    data = result.get('data')
+    if isinstance(data, dict):
+        data_json = data.get('records')
+        if data_json:
+            data_list = inventory_data_process(data_json, is_summary=is_summary)
+            total_summary = data.get('totalSummary')
+            pages = data.get('pages')
+            total = data.get('total')
+            return {
+                "status": "success",
+                "data": data_list,
+                "total_summary": total_summary,
+                "page_info": {
+                    "current": current,
+                    "size": size,
+                    "pages": pages,
+                    "total": total,
+                }
             }
-        }
+        else:
+            return {"status": "success","data":[]} 
+    elif isinstance(data, str):
+        return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
         return {"status": "error", "message": "未找到库存明细"}
 
@@ -116,7 +122,7 @@ async def get_inventory_audit_summary_data(
     authorization = runtime.context.api_key if runtime and runtime.context else None
     if not authorization:
         return {"status": "error", "message": "未授权"}
-    data = await inventory_audit_summary_report(
+    result = await inventory_audit_summary_report(
         authorization=authorization,
         start_date=start_date,
         end_date=end_date,
@@ -131,24 +137,30 @@ async def get_inventory_audit_summary_data(
         store_type=store_type,
         is_store_summary=is_store_summary,
     )
-    data_json = data.get('data').get('records')
-    if data_json:
-        data_list = inventory_audit_data_process(
-            data_json, is_summary=is_store_summary)
-        total_summary = data.get('data').get('totalSummary')
-        total_summary = inventory_audit_summary_data_process(total_summary,is_summary=is_store_summary)
-        pages = data.get('data').get('pages')
-        total = data.get('data').get('total')
-        return {
-            "status": "success",
-            "data": data_list,
-            "total_summary": total_summary,
-            "page_info": {
-                "current": current,
-                "size": size,
-                "pages": pages,
-                "total": total,
+    data = result.get('data')
+    if isinstance(data, dict):
+        data_json = data.get('records')
+        if data_json:
+            data_list = inventory_audit_data_process(
+                data_json, is_summary=is_store_summary)
+            total_summary = data.get('totalSummary')
+            total_summary = inventory_audit_summary_data_process(total_summary,is_summary=is_store_summary)
+            pages = data.get('pages')
+            total = data.get('total')
+            return {
+                "status": "success",
+                "data": data_list,
+                "total_summary": total_summary,
+                "page_info": {
+                    "current": current,
+                    "size": size,
+                    "pages": pages,
+                    "total": total,
+                }
             }
-        }
+        else:
+            return {"status": "success","data":[]} 
+    elif isinstance(data, str):
+        return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
-        return {"status": "success", "message": "未找到库存盘点数据"}
+        return {"status": "error", "message": "未找到库存盘点数据"}
