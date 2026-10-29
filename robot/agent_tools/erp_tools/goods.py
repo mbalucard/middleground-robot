@@ -54,7 +54,7 @@ async def get_goods_info(
     data = result.get('data')
     if isinstance(data, dict):
         records = data.get('records')
-        if isinstance(records, List):
+        if isinstance(records, List) and records:
             data_list = goods_data_process(records)
             return {
                 "status": "success",

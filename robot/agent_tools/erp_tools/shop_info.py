@@ -44,7 +44,7 @@ async def get_warehouse_info(
     data = result.get('data')
     if isinstance(data, dict):
         records = data.get('records')
-        if isinstance(records, List):
+        if isinstance(records, List) and records:
             data_list = warehouse_information_data_process(records)
             return {
                 "status": "success",
@@ -96,7 +96,7 @@ async def get_shop_available_info(
     data = result.get('data')
     if isinstance(data, dict):
         records = data.get('records')
-        if isinstance(records, List):
+        if isinstance(records, List) and records:
             data_list = shop_info_data_process(records)
             return {
                 "status": "success",
@@ -136,7 +136,7 @@ async def get_region_tree_info(
         tenant_id=tenant_id
     )
     data = result.get('data')
-    if isinstance(data, List):
+    if isinstance(data, List) and data:
         data_list = region_tree_data_process(data)
         return {
             "status": "success",

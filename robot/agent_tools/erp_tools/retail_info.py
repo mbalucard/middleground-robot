@@ -57,7 +57,7 @@ async def get_shop_retail_info(
     data = result.get('data')
     if isinstance(data, dict):
         records = data.get('records')
-        if records:
+        if records and isinstance(records, List):
             data_list = shop_sale_data_process(records)
             total_summary = shop_sale_summary_data_process(
                 data.get('totalSummary'))
@@ -134,7 +134,7 @@ async def get_store_goods_retail_info(
     data = result.get('data')
     if isinstance(data, dict):
         records = data.get('records')
-        if records:
+        if isinstance(records, List) and records:
             data_list = store_goods_retail_data_process(
                 records,
                 is_store_summary=is_store_summary,
