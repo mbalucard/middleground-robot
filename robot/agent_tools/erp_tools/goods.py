@@ -13,9 +13,9 @@ from utils.virtue_bright_erp.data_process.goods_data import goods_data_process
 
 @tool('get_goods_info', description='获取商品信息')
 async def get_goods_info(
-    commonName: Optional[str] = None,
+    common_name: Optional[str] = None,
     producer: Optional[str] = None,
-    licenseNumber: Optional[str] = None,
+    license_number: Optional[str] = None,
     goods_code: Optional[str] = None,
     goods_name: Optional[str] = None,
     goods_barcode: Optional[str] = None,
@@ -26,9 +26,9 @@ async def get_goods_info(
     """
     获取商品信息
     Args:
-        commonName: 通用名称
+        common_name: 通用名称
         producer: 生产企业
-        licenseNumber: 批准文号
+        license_number: 批准文号
         goods_code: 商品编码
         goods_name: 商品名称
         goods_barcode: 商品条码
@@ -44,18 +44,18 @@ async def get_goods_info(
         authorization=authorization,
         codes=goods_code,
         name=goods_name,
-        commonName=commonName,
+        commonName=common_name,
         producer=producer,
-        licenseNumber=licenseNumber,
+        licenseNumber=license_number,
         barcode=goods_barcode,
         current=current,
         size=size
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = data.get('records')
-        if isinstance(data_json, List):
-            data_list = goods_data_process(data_json)
+        records = data.get('records')
+        if isinstance(records, List):
+            data_list = goods_data_process(records)
             return {
                 "status": "success",
                 "data": data_list,

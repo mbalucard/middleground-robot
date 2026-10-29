@@ -53,9 +53,9 @@ async def get_inventory_data(
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = data.get('records')
-        if data_json:
-            data_list = inventory_data_process(data_json, is_summary=is_summary)
+        records = data.get('records')
+        if records:
+            data_list = inventory_data_process(records, is_summary=is_summary)
             total_summary = data.get('totalSummary')
             pages = data.get('pages')
             total = data.get('total')
@@ -139,10 +139,10 @@ async def get_inventory_audit_summary_data(
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = data.get('records')
-        if data_json:
+        records = data.get('records')
+        if records:
             data_list = inventory_audit_data_process(
-                data_json, is_summary=is_store_summary)
+                records, is_summary=is_store_summary)
             total_summary = data.get('totalSummary')
             total_summary = inventory_audit_summary_data_process(total_summary,is_summary=is_store_summary)
             pages = data.get('pages')

@@ -93,7 +93,7 @@ allowed-tools: get_shop_available_info get_region_tree_info get_shop_retail_info
 用户给出商品（例如「三黄片这个月卖了多少」「五星路店的迪巧卖了多少」）时，按这个顺序：
 
 1. 读 `/skills/erp-stock/goods.md`，调用 `get_goods_info`。
-   - 用户给了名称时先传 `commonName`；没有结果再用同一名称改传 `goods_name`。
+   - 用户给了名称时先传 `common_name`；没有结果再用同一名称改传 `goods_name`。
    - 同名多规格、多厂家时，列出「商品编码」「通用名称」「规格/型号」「生产企业」，让用户选。用户可选一条或多条。不要替用户挑。
    - 从用户确认的记录取出「商品编码」。
 2. 若用户点了门店：读 `/skills/erp-shop-retail/shop.md`，按门店流程拿到「门店编码」和「租户ID」。

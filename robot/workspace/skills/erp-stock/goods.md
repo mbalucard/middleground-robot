@@ -10,11 +10,11 @@
 
 | 参数 | 含义 | 默认 | 何时用 |
 | --- | --- | --- | --- |
-| `commonName` | 通用名称 | 无 | 用户给了名称时先用这个查，如「迪巧」「三黄片」 |
+| `common_name` | 通用名称 | 无 | 用户给了名称时先用这个查，如「迪巧」「三黄片」 |
 | `goods_name` | 商品名称 | 无 | 通用名称没有结果时，用同一个名称再查一次 |
 | `goods_code` | 商品编码 | 无 | 用户已经给了编码。类型是**单个字符串**，不是列表 |
 | `goods_barcode` | 商品条码 | 无 | 仅当用户给的是 13 或 14 位纯数字时使用 |
-| `licenseNumber` | 批准文号 | 无 | 用户给了批准文号，或要用文号消歧 |
+| `license_number` | 批准文号 | 无 | 用户给了批准文号，或要用文号消歧 |
 | `producer` | 生产企业 | 无 | 用户指定了厂家，或同名商品需要按厂家缩小 |
 | `current` | 页码 | `1` | 正整数 |
 | `size` | 每页条数 | `10` | 正整数 |
@@ -23,9 +23,9 @@
 
 1. 用户给了商品编码 → 只传 `goods_code`（字符串）
 2. 用户给了条形码 → 先数位数。正好 13 位或 14 位纯数字才传 `goods_barcode`。位数不对、含字母或空格时，不要传这个参数；告诉用户条形码应为 13 或 14 位，请其核对后再查
-3. 用户给了批准文号 → 传 `licenseNumber`
-4. 用户给了商品名称（如「迪巧」）→ 先传 `commonName`。返回「未找到商品信息」时，用同一个名称改传 `goods_name` 再查一次。两次都没有结果，再告诉用户没找到
-5. 名称再加上厂家 → 两次查询都带上 `producer`：先 `commonName` + `producer`，没有结果再 `goods_name` + `producer`
+3. 用户给了批准文号 → 传 `license_number`
+4. 用户给了商品名称（如「迪巧」）→ 先传 `common_name`。返回「未找到商品信息」时，用同一个名称改传 `goods_name` 再查一次。两次都没有结果，再告诉用户没找到
+5. 名称再加上厂家 → 两次查询都带上 `producer`：先 `common_name` + `producer`，没有结果再 `goods_name` + `producer`
 
 `get_inventory_data`、`get_inventory_audit_summary_data`、`get_store_goods_retail_info` 的 `goods_codes` 都是字符串列表。本工具的 `goods_code` 是单个字符串，不是列表，不要传 `["编码"]`。
 
@@ -34,7 +34,7 @@
 1. 按上面的规则选出筛选字段
 2. 调用 `get_goods_info`
 3. 看 `status`、`data`、`page_info`
-4. 用户给的是名称，且这次用的是 `commonName`、结果是「未找到商品信息」：把同一名称改到 `goods_name` 再查一次。不要把第一次的空结果告诉用户
+4. 用户给的是名称，且这次用的是 `common_name`、结果是「未找到商品信息」：把同一名称改到 `goods_name` 再查一次。不要把第一次的空结果告诉用户
 5. 商品名称也没有结果，再告诉用户这个名称在通用名称和商品名称里都没有
 6. 看 `page_info`。当前页没找全、且 `pages` 大于 `current` 时，用相同筛选条件把 `current` 加 1 再查
 7. 后续要查库存或商品零售时，记下「商品编码」
@@ -54,7 +54,7 @@
 
 `data` 只是当前页，条数最多为 `size`，不一定等于 `total`。`pages` 大于 `current` 表示后面还有页。向用户报数量时用 `total`，不要把当前页条数说成全部。定位某一个商品时，先在当前页用规格和厂家消歧；当前页没有，且还有下一页，再翻页。用户要完整清单时，从 `current=1` 查到 `current=pages`。
 
-无数据：`status` 为 `error`，`message` 为「未找到商品信息」。如果这次查的是 `commonName`，按调用流程改用 `goods_name` 重试。编码、条码、批准文号没有结果，或商品名称也没有结果时，再告诉用户没找到。
+无数据：`status` 为 `error`，`message` 为「未找到商品信息」。如果这次查的是 `common_name`，按调用流程改用 `goods_name` 重试。编码、条码、批准文号没有结果，或商品名称也没有结果时，再告诉用户没找到。
 
 未授权：`message` 为「未授权」。
 
@@ -81,7 +81,7 @@
 用户：「查一下迪巧」
 
 ```
-get_goods_info(commonName="迪巧")
+get_goods_info(common_name="迪巧")
 ```
 
 返回「未找到商品信息」后再查：

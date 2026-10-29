@@ -34,7 +34,7 @@ allowed-tools: get_warehouse_info get_goods_info get_inventory_data get_inventor
    - 去掉物资仓后仍命中多家时，先列出「门店/仓库名称」「门店/仓库简称」「仓库ID」「仓库类型」，让用户确认。不要猜。
    - 用户说的是门店时，优先选「仓库类型」为「门店仓」的那条。
 2. 读 `/skills/erp-stock/goods.md`，调用 `get_goods_info`。
-   - 用户给了名称（如 `迪巧`、`三黄片`）时先传 `commonName`。
+   - 用户给了名称（如 `迪巧`、`三黄片`）时先传 `common_name`。
    - 通用名称没有结果时，用同一个名称改传 `goods_name` 再查一次。两次都没有，再告诉用户。
    - 从有结果的那一次取出「商品编码」。
    - 同名多规格、多厂家时先列出「商品编码」「通用名称」「规格/型号」「生产企业」，让用户确认。

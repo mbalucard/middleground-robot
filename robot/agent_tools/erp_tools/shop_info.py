@@ -43,17 +43,17 @@ async def get_warehouse_info(
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = result.get('data').get('records')
-        if isinstance(data_json, List):
-            data_list = warehouse_information_data_process(data_json)
+        records = data.get('records')
+        if isinstance(records, List):
+            data_list = warehouse_information_data_process(records)
             return {
                 "status": "success",
                 "data": data_list,
                 "page_info": {
                     "current": current,
                     "size": size,
-                    "pages": result.get('data').get('pages'),
-                    "total": result.get('data').get('total'),
+                    "pages": data.get('pages'),
+                    "total": data.get('total'),
                 }
             }
         else:
@@ -95,17 +95,17 @@ async def get_shop_available_info(
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = result.get('data').get('records')
-        if isinstance(data_json, List):
-            data_list = shop_info_data_process(data_json)
+        records = data.get('records')
+        if isinstance(records, List):
+            data_list = shop_info_data_process(records)
             return {
                 "status": "success",
                 "data": data_list,
                 "page_info": {
                     "current": current,
                     "size": size,
-                    "pages": result.get('data').get('pages'),
-                    "total": result.get('data').get('total'),
+                    "pages": data.get('pages'),
+                    "total": data.get('total'),
                 }
             }
         else:

@@ -56,9 +56,9 @@ async def get_shop_retail_info(
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = data.get('records')
-        if data_json:
-            data_list = shop_sale_data_process(data_json)
+        records = data.get('records')
+        if records:
+            data_list = shop_sale_data_process(records)
             total_summary = shop_sale_summary_data_process(
                 data.get('totalSummary'))
             total = data.get('total')
@@ -133,10 +133,10 @@ async def get_store_goods_retail_info(
     )
     data = result.get('data')
     if isinstance(data, dict):
-        data_json = data.get('records')
-        if data_json:
+        records = data.get('records')
+        if records:
             data_list = store_goods_retail_data_process(
-                data_json,
+                records,
                 is_store_summary=is_store_summary,
             )
             total_summary = store_goods_retail_summary_data_process(data.get('totalSummary'))
