@@ -1,6 +1,7 @@
 """
 企微出站消息与心跳
     - respond_stream / respond_template_card / respond_update_template_card: 被动回复
+    - respond_file / respond_markdown: 被动回复文件与 markdown
     - send_template_card / send_markdown: 主动推送
     - heartbeat_loop: 心跳包
 """
@@ -134,6 +135,58 @@ async def respond_update_template_card(
     resp = await send_and_wait_response(ws, payload, timeout=15.0)
     logger.info(
         f"respond_update_template_card task_id={card.get('task_id')} "
+        f"errcode={resp.get('errcode')} errmsg={resp.get('errmsg')}"
+    )
+    return resp
+
+
+async def respond_file(ws, callback_req_id: str, media_id: str) -> dict:
+    """
+    被动回复文件消息
+    Args:
+        ws: websocket连接
+        callback_req_id(str): 消息回调 req_id
+        media_id(str): 上传临时素材返回的 media_id
+    Returns:
+        企微应答
+    """
+    payload = {
+        "cmd": "aibot_respond_msg",
+        "headers": {"req_id": callback_req_id},
+        "body": {
+            "msgtype": "file",
+            "file": {"media_id": media_id},
+        },
+    }
+    resp = await send_and_wait_response(ws, payload, timeout=30.0)
+    logger.info(
+        f"respond_file media_id={media_id} "
+        f"errcode={resp.get('errcode')} errmsg={resp.get('errmsg')}"
+    )
+    return resp
+
+
+async def respond_markdown(ws, callback_req_id: str, content: str) -> dict:
+    """
+    被动回复 markdown 消息
+    Args:
+        ws: websocket连接
+        callback_req_id(str): 消息回调 req_id
+        content(str): markdown 正文
+    Returns:
+        企微应答
+    """
+    payload = {
+        "cmd": "aibot_respond_msg",
+        "headers": {"req_id": callback_req_id},
+        "body": {
+            "msgtype": "markdown",
+            "markdown": {"content": content},
+        },
+    }
+    resp = await send_and_wait_response(ws, payload, timeout=15.0)
+    logger.info(
+        f"respond_markdown "
         f"errcode={resp.get('errcode')} errmsg={resp.get('errmsg')}"
     )
     return resp

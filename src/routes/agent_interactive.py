@@ -172,8 +172,7 @@ async def run_agent_invoke(
 async def run_agent_interrupts_judge_invoke(
     request: RunAgentInterruptsJudgeRequest,
     app_request: Request,
-    background_tasks: BackgroundTasks,
-):
+    background_tasks: BackgroundTasks,):
     """
     中断恢复运行智能体请求
     """

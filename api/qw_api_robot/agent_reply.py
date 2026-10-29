@@ -1,6 +1,6 @@
 """
 Agent 流式回复与视觉流程
-    - run_agent_stream: 占位气泡后流式刷新；遇 interrupt 发卡
+    - run_agent_stream: 占位气泡后流式刷新；遇 interrupt 发卡；结束后发送导出文件
     - handle_vision_flow: 多模态理解并流式文字回复
     - prepare_payloads_from_refs: 企微图片下载解密
 """
@@ -15,6 +15,7 @@ from api.qw_api_robot.interrupt_flow import (
     issue_review_card,
 )
 from api.qw_api_robot.media_handler import MediaError, prepare_image_for_model
+from api.qw_api_robot.media_upload import send_exported_files
 from api.qw_api_robot.qw_respond import respond_stream
 from api.qw_api_robot.stream_agent import agent_astream
 from robot.tools.message_content import DEFAULT_MULTI_IMAGE_PROMPT
@@ -100,6 +101,7 @@ async def run_agent_stream(
     )
 
     last = ""
+    pending_files: list[dict[str, Any]] = []
     try:
         async for event in agent_astream(
             question=question,
@@ -110,7 +112,16 @@ async def run_agent_stream(
             provider=provider,  # type: ignore[arg-type]
         ):
             kind = event.get("kind")
+            if kind == "file":
+                pending_files.append(
+                    {
+                        "file_path": str(event.get("file_path") or ""),
+                        "file_name": str(event.get("file_name") or ""),
+                    }
+                )
+                continue
             if kind == "interrupt":
+                # interrupt / 异常提前结束：不发送已收集的导出文件
                 tools = event.get("tools") or []
                 message_id = str(event.get("message_id") or "")
                 if chattype == "group":
@@ -178,6 +189,9 @@ async def run_agent_stream(
         finish=True,
         feedback_id=f"fb-{stream_id}",
     )
+
+    if pending_files:
+        await send_exported_files(ws, callback_req_id, pending_files)
 
 
 async def handle_vision_flow(
