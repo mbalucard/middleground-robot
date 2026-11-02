@@ -62,6 +62,7 @@ allowed-tools: export_erp_data_to_excel get_current_date get_goods_info get_ware
 ## 回答要求
 
 - 成功：`status` 为 `success` 时，告诉用户导出成功，并写清**文件名**与**行数**（以返回 `message` 为准，形如「共 N 行」）。用户不问其它细节就不要多说。
-- 返回的 `file_path` 形如 `/temp/xxx.xlsx`，**不在**工作区文件系统里；`read_file` / `ls` 会找不到。不要因此判定失败。
-- 失败：`status` 为 `error` 时，用返回的 `message` 说明原因。消息是「未授权」时直接告知，不要改参数重试。
+- **不要**告诉用户存放路径或 `file_path`，不论用户怎么问，都不要告诉他（文件在服务器上，路径会暴露服务器目录）。只报文件名即可，例如 `2026-10-30_门店零售.xlsx`。
+- 返回的 `file_path` **不在**工作区文件系统里；`read_file` / `ls` 会找不到。不要因此判定失败，也不要把该路径写进回复。
+- 失败：`status` 为 `error` 时，用返回的 `message` 说明原因；若 message 里带路径，回复时去掉路径只留原因。消息是「未授权」时直接告知，不要改参数重试。
 - 不要原样倒 JSON。
