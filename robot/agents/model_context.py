@@ -6,11 +6,10 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
+from robot.agents.models import ModelLabel
 
-ModelLabel = Literal["deepseek", "minimax_m3",
-                     "aihubmix_minimax_m27", "aihubmix_minimax_m3"]
 
 
 @dataclass

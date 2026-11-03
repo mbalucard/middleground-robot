@@ -1,7 +1,6 @@
 """
 Agent模型
     - deepseek_model
-    - deepseek_model_vision
     - minimax_model_M3
     - qwen_embedding_model
     - aihubmix_minimax_m27
@@ -10,9 +9,12 @@ Agent模型
 
 from langchain.chat_models import init_chat_model
 from langchain_openai import OpenAIEmbeddings
-
+from typing import Literal
 from configs.model_config import (
     DeepSeekModelConfig, MiniMaxModelConfig, DashScopeEmbeddingModelConfig, AIHubMixModelConfig)
+
+ModelLabel = Literal["deepseek", "minimax_m3",
+                     "aihubmix_minimax_m27", "aihubmix_minimax_m3"]
 
 
 deepseek_model = init_chat_model(

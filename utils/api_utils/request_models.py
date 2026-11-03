@@ -11,7 +11,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from robot.agents.model_context import ModelLabel
+from robot.agents.models import ModelLabel
 from robot.agents.agent_invoke import AllowedDecisions
 
 VisionProviderField = Literal["openai", "anthropic"]

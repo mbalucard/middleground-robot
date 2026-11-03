@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
-from robot.agents.model_context import ModelLabel
+from robot.agents.models import ModelLabel
 from robot.tools.session_redis import SessionRedis
 from robot.tools.interrupt_handling import handle_interrupt_info
 from robot.agents.model_context import Context, invoke_config

@@ -11,7 +11,7 @@ import binascii
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
-from robot.agents.model_context import ModelLabel
+from robot.agents.models import ModelLabel
 from robot.tools.message_content import (
     ImageContentError,
     VisionProvider,
