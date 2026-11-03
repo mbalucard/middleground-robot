@@ -9,7 +9,7 @@ from deepagents import create_deep_agent, FilesystemPermission
 from deepagents.backends import StateBackend
 from deepagents.middleware.summarization import create_summarization_tool_middleware
 
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage
 from langchain.agents.middleware import ModelFallbackMiddleware
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -32,7 +32,7 @@ from robot.agent_tools.erp_tools import (
     get_store_goods_retail_info,
     get_inventory_audit_summary_data,
 )
-from robot.agent_tools.export_erp_data import export_erp_data_to_excel
+from robot.agent_tools.output_tools import export_erp_data_to_excel, send_email
 from robot.agent_tools.mcp_server_tools import QwMcp
 
 _SYS_MESSAGE_PATH = Path(FilePath.ROOT_PATH) / \
@@ -84,7 +84,7 @@ async def build_agent(*, checkpointer: AsyncPostgresSaver, store: AsyncPostgresS
         get_store_goods_retail_info,
         get_inventory_audit_summary_data,
     ]
-    tools = [internet_search, get_current_date, fetch_internet_content, export_erp_data_to_excel, *mcp_tools, *erp_tools]
+    tools = [internet_search, get_current_date, fetch_internet_content, export_erp_data_to_excel, send_email, *mcp_tools, *erp_tools]
 
     sys_message = _SYS_MESSAGE_PATH.read_text(encoding="utf-8")
     system_prompt = SystemMessage(content=sys_message)

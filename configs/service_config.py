@@ -66,6 +66,7 @@ class EmailConfig:
     SMTP_PORT = os.getenv('WY_SMTP_PORT',994)
     USERNAME = os.getenv('WY_USERNAME')
     PASSWORD = os.getenv('WY_PASSWORD')
+    DOMAIN = os.getenv('WY_DOMAIN', None)
 
 
 if __name__ == "__main__":

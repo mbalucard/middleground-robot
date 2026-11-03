@@ -1,11 +1,14 @@
 """
-ERP数据导出工具
-    - 导出ERP数据至表格,支持Excel和CSV格式
+输出工具
+    - export_erp_data_to_excel: 导出ERP数据至表格,支持Excel和CSV格式
+    - send_email: 发送邮件
 """
 
 from utils.virtue_bright_erp.get_data import fetch_all_pages
+from utils.email_tools import EmailTools
+from configs.service_config import EmailConfig
 
-from typing import Literal
+from typing import Literal,List,Optional
 import pandas as pd
 from robot.agents.model_context import Context
 from langchain.tools import ToolRuntime, tool
@@ -69,3 +72,41 @@ async def export_erp_data_to_excel(
 
     else:
         return {"status": "error", "message": f"工具名称错误: 支持以下工具: {Tools_Name}","file_path": ""}
+
+
+@tool('send_email', description='发送邮件')
+async def send_email(
+    to_addrs: List[str],
+    subject: str,
+    content: str,
+    attachments: Optional[List[str]] = None,
+    runtime: ToolRuntime[Context] = None):
+    """
+    发送邮件
+    Args:
+        to_addrs: 收件人列表
+        subject: 邮件主题
+        content: 邮件内容
+        attachments: 附件列表
+    Returns:
+        dict: {status, message_id}
+    """
+    thread_id = runtime.context.thread_id if runtime and runtime.context else None
+    email_tools = EmailTools(
+        smtp_server=EmailConfig.SMTP_SERVER,
+        smtp_port=int(EmailConfig.SMTP_PORT),
+        username=EmailConfig.USERNAME,
+        password=EmailConfig.PASSWORD,
+        domain=EmailConfig.DOMAIN,
+    )
+    result = await email_tools.send_email(
+        to_addrs=to_addrs,
+        subject=subject,
+        content=content,
+        attachments=attachments,
+        message_id=thread_id,
+    )
+    if result.get("status"):
+        return {"status": "success", "message_id": result.get("message_id")}
+    else:
+        return {"status": "error", "message": result.get("message")}

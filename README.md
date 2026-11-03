@@ -153,7 +153,7 @@ FastAPI（fastapi_main）
 多模态 content 拼装在 `robot/tools/message_content.py`；API 校验见 `utils/api_utils/vision_request.py`。企微侧默认 `provider="openai"`、`model_label=deepseek`。
 
 | `provider` | content 协议 | `model_label` | 实际模型 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `openai` | OpenAI `image_url` + `data:` URL | `deepseek` | deepseek-flash |
 | `anthropic` | Anthropic `image` + `source.base64` | `minimax_m3` / `aihubmix_minimax_m3` | MiniMax-M3 |
 
