@@ -11,6 +11,8 @@
     - region_tree_data_process: 区域树数据处理-查询用
     - inventory_audit_data_process: 库存盘点数据处理
     - inventory_audit_summary_data_process: 库存盘点汇总数据处理
+    - task_brief_data_process: 任务简要数据处理
+    - employee_data_process: 人员数据处理
 """
 
 from utils.virtue_bright_erp.data_process.ins_data import (
@@ -32,7 +34,12 @@ from utils.virtue_bright_erp.data_process.sale_data import (
     store_goods_retail_data_process,
     store_goods_retail_summary_data_process,
 )
-
+from utils.virtue_bright_erp.data_process.task_data import (
+    task_brief_data_process,
+)
+from utils.virtue_bright_erp.data_process.personnel_data import (
+    employee_data_process,
+)
 __all__ = [
     "warehouse_information_data_process",
     "shop_info_data_process",
@@ -45,4 +52,6 @@ __all__ = [
     "region_tree_data_process",
     "inventory_audit_data_process",
     "inventory_audit_summary_data_process",
+    "task_brief_data_process",
+    "employee_data_process",
 ]

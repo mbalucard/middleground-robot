@@ -1,12 +1,12 @@
 """
 BI报表参数
+    - report_field_args BI报表参数
 """
 
 
 def report_field_args(
     report_code: int,
-    is_summary: bool = False
-):
+    is_summary: bool = False):
     """
     BI报表参数
     Args:

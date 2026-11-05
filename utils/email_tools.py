@@ -16,12 +16,17 @@ logger = LoggerManager.get_logger(__name__)
 
 
 class EmailTools:
-    def __init__(self,
-    smtp_server:str,
-    smtp_port:int,
-    username:str,
-    password:str,
-    domain:str,):
+    """
+    邮箱工具
+    """
+
+    def __init__(
+            self,
+            smtp_server: str,
+            smtp_port: int,
+            username: str,
+            password: str,
+            domain: str,):
         """
         初始化邮箱工具
         Args:
@@ -39,13 +44,12 @@ class EmailTools:
         self.root_path = FilePath.ROOT_PATH
 
     async def send_email(
-        self,
-        to_addrs: list[str],
-        subject: str,
-        content: str,
-        message_id: Optional(str) = None,
-        attachments: Optional[List[str]] = None,
-    ):
+            self,
+            to_addrs: list[str],
+            subject: str,
+            content: str,
+            message_id: Optional(str) = None,
+            attachments: Optional[List[str]] = None,):
         """
         发送邮件
         Args:
@@ -53,6 +57,7 @@ class EmailTools:
             subject: 邮件主题
             content: 邮件内容
             message_id: 消息ID
+            attachments: 附件列表
         Returns:
             dict: 发送结果
         """
@@ -137,6 +142,10 @@ class EmailTools:
                 maintype, subtype = "application", "octet-stream"
             else:
                 maintype, subtype = ctype.split("/", 1)
-            msg.add_attachment(data, maintype=maintype,
-                               subtype=subtype, filename=p.name)
+            msg.add_attachment(
+                data, 
+                maintype=maintype,
+                subtype=subtype,
+                filename=p.name,
+            )
         return {"status": True, "message": "附件添加成功"}
