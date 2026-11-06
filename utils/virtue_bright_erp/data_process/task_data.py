@@ -17,12 +17,14 @@ def task_brief_data_process(data_json: List[dict]):
         List[dict]: 清洗后的数据
     """
 
-    keys = ["taskId", "processDefName", "orderId", "contentOne",
-            "contentTwo", "organName", "extendInfo", "createTime", "resultName"]
+    keys = ["taskId", "instanceId", "processDefName", "orderId", "contentOne",
+            "contentTwo", "organName", "extendInfo", "createTime", 'startTime', "resultName", "taskName"]
     columns_dict = {
         'taskId': '编号',
+        'instanceId': '编号',  # 类型为 initiated 时特有
         'processDefName': '事项类型',
         'createTime': '发起时间',
+        'startTime': '发起时间',  # 类型为 initiated 时特有
         'tenantId': '租户ID',
         'enterpriseId': '企业ID',
         'orgId': '机构ID',
@@ -30,6 +32,7 @@ def task_brief_data_process(data_json: List[dict]):
         'createName': '创建人姓名',
         'orderId': '业务单据号',
         'resultName': '审批状态',
+        'taskName': '审批状态',  # 类型为 initiated 时特有
         'organName': '登陆机构',
         'contentOne': '内容一',
         'contentTwo': '内容二'

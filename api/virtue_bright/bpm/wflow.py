@@ -5,7 +5,7 @@
 
 
 from httpx import AsyncClient
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from configs.api_config import deming_env
 from api.virtue_bright.general_tools import timestamp
@@ -15,7 +15,6 @@ logger = LoggerManager.get_logger(name="bi_report")
 yaoud_env = deming_env
 base_url = f"{yaoud_env['url']}/bpm/wflow"
 TTL = yaoud_env["timeout"]
-
 
 
 async def get_task_todo_list(
@@ -30,6 +29,10 @@ async def get_task_todo_list(
     create_start_time: Optional[str] = None,
     create_end_time: Optional[str] = None,
     login_enterprise: bool = False,
+    result: Optional[Literal["process-end", "in-approval",
+                             "refuse-end", "cancel-end"]] = None,
+    task_type: Literal["todo", "done", "initiated"] = "todo",
+    show_mine: int = 1,
 ):
     """
     获取待办任务列表
@@ -49,17 +52,27 @@ async def get_task_todo_list(
         create_end_time (Optional[str]): 创建结束时间
             - 格式：yyyy-MM-dd
         login_enterprise (bool): 是否当前企业
+        result (Optional[Literal["process-end", "in-approval", "refuse-end", "cancel-end"]]): 结果状态
+            - process-end 已审批  in-approval 审批中  refuse-end 已驳回  cancel-end 已撤回
+        task_type (Literal["todo", "done", "initiated"]): 任务类型
+            - todo: 待办  done: 已办  initiated: 已发起
+        show_mine (int): 是否仅显示我的任务
+            - 1: 仅显示我的任务 0: 显示所有任务
     """
-    url = f"{base_url}/process/task/todoList"
+    if task_type == "todo":
+        url = f"{base_url}/process/task/todoList"
+    elif task_type == "done":
+        url = f"{base_url}/process/task/idoList"
+    elif task_type == "initiated":
+        url = f"{base_url}/process/mySubmitted"
+    else:
+        raise ValueError(f"Invalid task type: {task_type}")
+
     headers = {
         "Authorization": authorization,
         "client-tom": "Y",
         "tenant-id": str(tenant_id) if tenant_id else "",
     }
-    if create_start_time and isinstance(create_start_time, str):
-        create_start_time = f"{create_start_time} 00:00:00"
-    if create_end_time and isinstance(create_end_time, str):
-        create_end_time = f"{create_end_time} 23:59:59"
     params = {
         "current": current,
         "size": size,
@@ -70,10 +83,21 @@ async def get_task_todo_list(
         "loginEnterprise": login_enterprise,
         "_t": timestamp(),
     }
-    if create_start_time:
+    # 时间处理
+    if create_start_time and isinstance(create_start_time, str):
+        create_start_time = f"{create_start_time} 00:00:00"
         params["createStartTime"] = create_start_time
-    if create_end_time:
+    if create_end_time and isinstance(create_end_time, str):
+        create_end_time = f"{create_end_time} 23:59:59"
         params["createEndTime"] = create_end_time
+
+    if task_type == "done" or task_type == "initiated":
+        if result:
+            params["result"] = result
+    if task_type == "done":
+        params["showMine"] = show_mine
+
+    
     async with AsyncClient(timeout=TTL) as client:
         response = await client.get(url, headers=headers, params=params)
         return response.json()

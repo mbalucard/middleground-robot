@@ -7,7 +7,7 @@ from langchain.tools import tool, ToolRuntime
 from typing import Optional, List
 from robot.agents.model_context import Context
 
-from api.virtue_bright.bpm.wflow import get_task_todo_list
+from api.virtue_bright.bpm import get_task_todo_list
 from utils.virtue_bright_erp.data_process import task_brief_data_process
 
 

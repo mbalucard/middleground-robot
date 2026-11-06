@@ -1,5 +1,6 @@
 """
 人员信息工具
+    - get_brief_employee_list: 获取员工简易信息列表
 """
 
 from langchain.tools import tool, ToolRuntime
@@ -7,7 +8,7 @@ from typing import Optional, List
 from robot.agents.model_context import Context
 
 from utils.virtue_bright_erp.data_process import employee_data_process
-from api.virtue_bright.infra.external import get_employee_list
+from api.virtue_bright.infra import get_employee_list
 
 
 @tool('get_brief_employee_list', description='获取员工简易信息列表')
@@ -44,4 +45,4 @@ async def get_brief_employee_list(
     elif isinstance(data, str):
         return {"status": "error", "message": f"{result.get('msg')},{data}"}
     else:
-        return {"status": "error", "message": "获取员工简易信息列表失败"}
+        return {"status": "error", "message": "获取员工信息列表失败"}
