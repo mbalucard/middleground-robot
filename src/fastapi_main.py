@@ -64,7 +64,7 @@ app = FastAPI(
     title="Robot API",
     description="基于DeepAgents的机器人API",
     lifespan=lifespan,
-    version="0.1.0",
+    version="0.6.0",
 )
 
 app.include_router(agent_interactive_router)

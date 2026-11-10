@@ -15,7 +15,9 @@ base_url = f"{yaoud_env['url']}/auth"
 TTL = yaoud_env["timeout"]
 
 
-async def log_in(username: str, password: str) -> dict:
+async def log_in(
+    username: str, 
+    password: str,) -> dict:
     """
     登陆药德系统
 
@@ -67,19 +69,26 @@ async def get_authorization(username: str, password: str) -> dict:
     authorization = response.get("token_type")+" "+response.get("access_token")
     auth = {
         "authorization": authorization,
-        "expires_in": response.get("expires_in"),
-        
+        "expires_in": response.get("expires_in"),  
     }
+    # 当前状态
     current_status = {
-        "tenantId": response.get("tenantId"),
-        "enterpriseId": response.get("enterpriseId"),
-        "organId": response.get("organId"),
-        "organType": response.get("organType"),
-        "user_id": response.get("user_id")
+        "tenantId": response.get("tenantId"),  # 租户ID
+        "enterpriseId": response.get("enterpriseId"),  # 企业ID
+        "organId": response.get("organId"),  # 机构ID
+        "organType": response.get("organType"),  # 机构类型
+        "systemId": response.get("systemId"),  # 模块ID
+        "currentPath": response.get("systemPath"),  # 模块路径
+        "user_id": response.get("user_id"),
+        "username": response.get("username"),
+        "is_admin": response.get("tenantAdmin")  # 是否为租户管理员
     }
-    resource = {"organIds": response.get("organIds", []),
-                "tenantIds": response.get("tenantIds", []),
-                "enterpriseIds": response.get("enterpriseIds", [])}
+    # 资源信息
+    resource = {"organIds": response.get("organIds", []),  # 机构ID列表
+                "tenantIds": response.get("tenantIds", []),  # 租户ID列表
+                "systemIds": response.get("systemIds", []),  # 模块ID列表
+                "enterpriseIds": response.get("enterpriseIds", [])}  # 企业ID列表
+    # 员工信息
     if response.get("employee"):
         employee_data = json.loads(response.get("employee"))
         employee = {

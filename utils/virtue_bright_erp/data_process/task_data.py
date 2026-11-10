@@ -20,8 +20,6 @@ def task_brief_data_process(data_json: List[dict]):
     keys = ["taskId", "instanceId", "processDefName", "orderId", "contentOne",
             "contentTwo", "organName", "extendInfo", "createTime", 'startTime', "resultName", "taskName"]
     columns_dict = {
-        'taskId': '编号',
-        'instanceId': '编号',  # 类型为 initiated 时特有
         'processDefName': '事项类型',
         'createTime': '发起时间',
         'startTime': '发起时间',  # 类型为 initiated 时特有
@@ -51,6 +49,10 @@ def task_brief_data_process(data_json: List[dict]):
                     item_dict["createName"] = v.get("createName")
                     continue
                 item_dict[k] = v
+        #! 就是因为接口返回数据不一致，所以需要处理
+        if item_dict.get("createTime"):
+            item_dict.pop("startTime", None)
+            item_dict.pop("taskName", None)
         rows_data.append(item_dict)
     # 数据清洗
     df = pd.DataFrame(rows_data)
