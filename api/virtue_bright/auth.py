@@ -2,9 +2,11 @@
 登录VIRTUE_BRIGHT系统
     - log_in: 登录药德系统
     - get_authorization: 获取药德系统的授权信息
+    - logout: 退出登录
 """
 import json
 from httpx import AsyncClient
+from typing import Optional
 from api.virtue_bright.aes_tool import aes_cfb_encrypt_base64
 from configs.api_config import deming_env, deming_uat_env
 from utils.redis_link import RedisManager
@@ -109,8 +111,24 @@ async def get_authorization(username: str, password: str) -> dict:
     }
     return result
 
-
-
+async def logout(authorization: str, tenant_id: Optional[int] = None):
+    """
+    退出登录
+    Args:
+        authorization (str): 认证信息
+        tenant_id (int, None): 租户ID. Defaults to None.
+    Returns:
+        dict: 退出登录结果
+    """
+    url = f"{base_url}/token/logout"
+    headers = {
+        "Authorization": authorization,
+        "client-tom": "Y",
+        "tenant-id": str(tenant_id) if tenant_id else "",
+    }
+    async with AsyncClient() as client:
+        response = await client.delete(url, headers=headers, timeout=TTL)
+    return response.json()
 
 if __name__ == "__main__":
     import asyncio

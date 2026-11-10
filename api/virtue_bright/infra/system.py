@@ -62,6 +62,39 @@ async def switch_organ(authorization: str, organ_id: int) -> dict:
     return response.json()
 
 
+async def switch_system(
+        authorization: str,
+        system_id: int = 1,
+        tenant_id: Optional[int] = None,):
+    """
+    切换系统
+    Args:
+        authorization (str): 认证信息
+        system_id (int): 系统ID
+            - 可在 get_bloc_enterprise_tree 中获取, 对应字段"id"
+        tenant_id (int, None): 租户ID. Defaults to None.
+    Returns:
+        dict: 切换系统结果
+    """
+    url = f"{base_url}/switchSystem"
+    headers = {
+        "Authorization": authorization,
+        "client-tom": "Y",
+        "tenant-id": str(tenant_id) if tenant_id else "",
+    }
+
+    params = {
+        "id": system_id,
+        "tenant_id": tenant_id,
+        "mac": "",
+        "forceRestriction": "true",
+        "_t": timestamp()
+    }
+    async with AsyncClient() as client:
+        response = await client.get(url, headers=headers, params=params, timeout=TTL)
+    return response.json()
+
+
 async def get_enterprise_list(
     authorization: str,
     tenant_id: Optional[int] = None,
@@ -108,11 +141,6 @@ async def get_organ_list(
     async with AsyncClient() as client:
         response = await client.get(url, headers=headers, params=params, timeout=TTL)
     return response.json()
-
-
-
-
-
 
 
 if __name__ == "__main__":
