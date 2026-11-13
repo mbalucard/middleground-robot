@@ -1,6 +1,9 @@
 """
 API配置
     - QywxBotConfig: 企微机器人配置
+    - APIConfig: API配置
+    - deming_uat_env: 德铭UAT环境配置
+    - deming_env: 德铭生产环境配置
 """
 import os
 import dotenv

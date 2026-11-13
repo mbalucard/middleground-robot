@@ -1,7 +1,7 @@
 """
 通用工具
     - new_req_id: 生成唯一请求id
-    - get_or_create_api_thread_id: Redis 缓存 API thread_id（TTL 600s）
+    - get_or_create_api_thread_id: Redis 缓存 API thread_id（TTL 约 1800s）
     - send_json / send_and_wait_response / dispatch_ws_response: WS 收发
 """
 
@@ -11,6 +11,7 @@ import uuid
 from random import randint
 
 from api.qw_api_robot.api_client import ApiClientError, create_session_thread
+from api.qw_api_robot.export_files import cleanup_export_files_for_new_thread
 from utils.logger_manager import LoggerManager
 from utils.redis_link import RedisManager
 
@@ -86,7 +87,7 @@ def _api_thread_redis_key(userid: str) -> str:
 
 async def get_or_create_api_thread_id(userid: str) -> str:
     """
-    获取或创建 API 会话 thread_id（Redis 缓存，TTL 约 600s）
+    获取或创建 API 会话 thread_id（Redis 缓存，TTL 约 1800s）
     Args:
         userid(str): 企微用户ID
     Returns:
@@ -114,6 +115,7 @@ async def get_or_create_api_thread_id(userid: str) -> str:
         mapping={"user_id": userid, "thread_id": thread_id},
     )
     await r_client.expire(key, out_time)
+    await cleanup_export_files_for_new_thread(userid, thread_id)
     logger.info(f"新建 API thread: userid={userid} thread_id={thread_id}")
     return thread_id
 

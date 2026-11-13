@@ -2,7 +2,7 @@
 企微长连接临时素材上传
     - upload_local_file: 分片上传本地文件，返回 media_id
     - resolve_export_abs_path: 相对导出路径转绝对路径
-    - send_exported_files: 上传并被动回复文件，成功后删本地
+    - send_exported_files: 上传并被动回复；本地文件由 thread 生命周期清理
 """
 
 from __future__ import annotations
@@ -157,7 +157,7 @@ async def send_exported_files(
     pending_files: list[dict[str, Any]],
 ) -> None:
     """
-    上传并被动回复导出文件；成功后删除本地；失败补文字
+    上传并被动回复导出文件；本地文件由 thread 生命周期清理；失败补文字
     Args:
         ws: websocket连接
         callback_req_id(str): 消息回调 req_id
@@ -189,10 +189,6 @@ async def send_exported_files(
                     f"文件发送失败：{display_name}，请稍后重试",
                 )
                 continue
-            try:
-                os.remove(abs_path)
-            except OSError as e:
-                logger.warning(f"删除本地文件失败 path={abs_path}: {e}")
         except MediaUploadError as e:
             logger.warning(
                 f"发送导出文件失败 name={display_name}: {e.user_message}"

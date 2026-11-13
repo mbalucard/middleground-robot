@@ -15,6 +15,7 @@ from api.qw_api_robot.interrupt_flow import (
     issue_review_card,
 )
 from api.qw_api_robot.media_handler import MediaError, prepare_image_for_model
+from api.qw_api_robot.export_files import append_export_file
 from api.qw_api_robot.media_upload import send_exported_files
 from api.qw_api_robot.qw_respond import respond_stream
 from api.qw_api_robot.stream_agent import agent_astream
@@ -113,12 +114,14 @@ async def run_agent_stream(
         ):
             kind = event.get("kind")
             if kind == "file":
+                file_path = str(event.get("file_path") or "")
                 pending_files.append(
                     {
-                        "file_path": str(event.get("file_path") or ""),
+                        "file_path": file_path,
                         "file_name": str(event.get("file_name") or ""),
                     }
                 )
+                await append_export_file(userid, file_path, thread_id)
                 continue
             if kind == "interrupt":
                 # interrupt / 异常提前结束：不发送已收集的导出文件

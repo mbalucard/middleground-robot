@@ -20,7 +20,13 @@ from utils.logger_manager import LoggerManager
 
 logger = LoggerManager.get_logger(name="stream_agent")
 
-EXPORT_TOOL_NAME = "export_erp_data_to_excel"
+# 成功且带 file_path 时转为 kind=file，由企微侧投递给用户
+FILE_DELIVERY_TOOL_NAMES = frozenset(
+    {
+        "export_erp_data_to_excel",
+        "merge_tables_files",
+    }
+)
 
 
 def _parse_tool_content(content: Any) -> dict[str, Any] | None:
@@ -45,7 +51,7 @@ def _parse_tool_content(content: Any) -> dict[str, Any] | None:
 
 def _file_event_from_tool_data(data: dict[str, Any] | None) -> dict[str, Any] | None:
     """
-    从导出工具成功结果构造 file 事件
+    从导出/合并工具成功结果构造 file 事件
     Args:
         data(dict): ToolMessage 字典
     Returns:
@@ -53,7 +59,7 @@ def _file_event_from_tool_data(data: dict[str, Any] | None) -> dict[str, Any] | 
     """
     if not data or not isinstance(data, dict):
         return None
-    if data.get("name") != EXPORT_TOOL_NAME:
+    if data.get("name") not in FILE_DELIVERY_TOOL_NAMES:
         return None
     payload = _parse_tool_content(data.get("content"))
     if not payload:
