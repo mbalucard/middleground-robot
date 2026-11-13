@@ -97,15 +97,26 @@ async def change_organ(username: str, authorization: str, organ_id: int) -> dict
         return {"error": "用户未登录"}
 
 
-async def get_authorization_test():
+async def get_authorization_test(
+    username:Optional(str) = None,
+    password:Optional(str) = None,
+    organ_id:Optional(str) = None,
+):
     """
     测试获取授权信息
+    Args:
+        username: 用户名
+        password: 密码
+        organ_id: 机构ID
     Returns:
         dict: 授权信息
     """
-    username = os.getenv("TEST_USERNAME")
-    password = os.getenv("TEST_PASSWORD")
-    organ_id = os.getenv("TEST_ORGAN_ID")
+    if username is None:
+        username = os.getenv("TEST_USERNAME")
+    if password is None:
+        password = os.getenv("TEST_PASSWORD")
+    if organ_id is None:
+        organ_id = os.getenv("TEST_ORGAN_ID")
 
     auth = await get_auth_data(username, password)
     authorization = auth.get("auth").get("authorization")

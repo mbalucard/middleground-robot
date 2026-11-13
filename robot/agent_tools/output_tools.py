@@ -8,13 +8,17 @@ from utils.virtue_bright_erp.get_data import fetch_all_pages
 from utils.email_tools import EmailTools
 from configs.service_config import EmailConfig
 
-from typing import Literal,List,Optional
+from typing import Literal, List, Optional
 import pandas as pd
+import os
 from robot.agents.model_context import Context
 from langchain.tools import ToolRuntime, tool
 
 from configs.general_config import FilePath
 from robot.agent_tools.erp_tools import *
+from utils.logger_manager import LoggerManager
+
+logger = LoggerManager.get_logger("output_tools")
 
 
 Tools_Dict = {
@@ -31,11 +35,11 @@ Tools_Name = list(Tools_Dict.keys())
 
 @tool('export_erp_data_to_excel', description='导出ERP数据至表格,支持Excel和CSV格式')
 async def export_erp_data_to_excel(
-    tool_name: str,
-    tool_args: dict,
-    file_name: str,
-    file_type: Literal['xlsx', 'csv'] = 'xlsx',
-    runtime: ToolRuntime[Context] = None):
+        tool_name: str,
+        tool_args: dict,
+        file_name: str,
+        file_type: Literal['xlsx', 'csv'] = 'xlsx',
+        runtime: ToolRuntime[Context] = None):
     """
     导出ERP数据至表格
     Args:
@@ -52,8 +56,9 @@ async def export_erp_data_to_excel(
     Returns:
         dict: {status, message, file_path}
     """
-    base_path = "/temp"
+    base_path = "temp"
     export_path = f"{FilePath.ROOT_PATH}/{base_path}"
+    os.makedirs(export_path, exist_ok=True)
     if tool_name in Tools_Name:
         function_tool = Tools_Dict.get(tool_name)
         args = {**tool_args, "runtime": runtime}
@@ -66,21 +71,21 @@ async def export_erp_data_to_excel(
                 df.to_excel(f"{export_path}/{file_name}.xlsx", index=False)
             else:
                 df.to_csv(f"{export_path}/{file_name}.csv", index=False)
-            return {"status": "success", "message": f"数据已导出,文件名为{file_name}.{file_type},共{rows}行","file_path": f"{base_path}/{file_name}.{file_type}"}
+            return {"status": "success", "message": f"数据已导出,文件名为{file_name}.{file_type},共{rows}行", "file_path": f"{base_path}/{file_name}.{file_type}"}
         else:
-            return {"status": "error", "message": "未找到数据","file_path": ""}
+            return {"status": "error", "message": "未找到数据", "file_path": ""}
 
     else:
-        return {"status": "error", "message": f"工具名称错误: 支持以下工具: {Tools_Name}","file_path": ""}
+        return {"status": "error", "message": f"工具名称错误: 支持以下工具: {Tools_Name}", "file_path": ""}
 
 
 @tool('send_email', description='发送邮件')
 async def send_email(
-    to_addrs: List[str],
-    subject: str,
-    content: str,
-    attachments: Optional[List[str]] = None,
-    runtime: ToolRuntime[Context] = None):
+        to_addrs: List[str],
+        subject: str,
+        content: str,
+        attachments: Optional[List[str]] = None,
+        runtime: ToolRuntime[Context] = None):
     """
     发送邮件
     Args:
@@ -110,3 +115,59 @@ async def send_email(
         return {"status": "success", "message_id": result.get("message_id")}
     else:
         return {"status": "error", "message": result.get("message")}
+
+
+@tool('merge_tables_files', description='合并表格文件')
+async def merge_tables_files(
+        file_paths: List[str],
+        output_file_name: str,
+        output_file_type: Literal['xlsx', 'csv'] = 'xlsx',
+        is_distinguish_file_name: bool = True,
+        runtime: ToolRuntime[Context] = None):
+    """
+    合并表格文件
+    Args:
+        file_paths: 文件路径列表
+        output_file_name: 输出文件名
+        output_file_type: 输出文件类型, default=xlsx
+        is_distinguish_file_name: 是否区分文件名, default=False
+        runtime: 工具运行时
+    Returns:
+        dict: {status, message, file_path}
+    """
+    basket = []
+    base_path = "temp"
+    export_path = f"{FilePath.ROOT_PATH}/{base_path}"
+    os.makedirs(export_path, exist_ok=True)
+
+    for file_path in file_paths:
+        path_type = file_path.split(".")[-1]
+        abs_file_path = os.path.join(FilePath.ROOT_PATH, file_path)
+        if os.path.isfile(abs_file_path):
+            file_name = file_path.split("/")[-1].split(".")[0]
+            if path_type == 'xlsx':
+                df = pd.read_excel(abs_file_path)
+                if is_distinguish_file_name:
+                    df['file_name'] = file_name
+            elif path_type == 'csv':
+                df = pd.read_csv(abs_file_path)
+                if is_distinguish_file_name:
+                    df['file_name'] = file_name
+            else:
+                logger.error(f"文件类型错误: {file_path}")
+                continue
+        else:
+            logger.error(f"文件不存在: {file_path}")
+            continue
+        basket.append(df)
+
+    df = pd.concat(basket)
+    
+    if output_file_type == 'xlsx':
+        df.to_excel(f"{export_path}/{output_file_name}.{output_file_type}", index=False)
+    elif output_file_type == 'csv':
+        df.to_csv(f"{export_path}/{output_file_name}.{output_file_type}", index=False)
+    else:
+        output_file_type = 'xlsx'
+        df.to_excel(f"{export_path}/{output_file_name}.{output_file_type}", index=False)
+    return {"status": "success", "message": f"数据已合并,文件名为{output_file_name}.{output_file_type},共{len(df)}行", "file_path": f"{base_path}/{output_file_name}.{output_file_type}"}
